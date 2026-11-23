@@ -1,5 +1,6 @@
 //! Backup store on disk, backup writer, validation of untrusted stores, and snapshots/undo.
 use crate::catalog::{Apply, Kind, Scope};
+use crate::kconfig::KConfig;
 use crate::plugins::{self, MachineInfo, PluginRecord};
 use crate::scan::{self, Item, Skipped};
 use crate::{atomic_write, check_sp, err, file_mode, io, now_stamp, safe_join, sha256, Ctx, Error, Result};
@@ -349,24 +350,45 @@ pub fn undo(ctx: &Ctx, id: Option<&str>) -> Result<Snapshot> {
         None => all.into_iter().next(),
     }
     .ok_or_else(|| Error::Msg("no such snapshot".into()))?;
-    let dir = snap_dir(ctx).join(&s.id);
     if s.id.contains('/') || s.id.contains("..") {
         return err("bad snapshot id");
     }
-    for f in &s.files {
-        let target = ctx.roots.abs(&f.store_path)?;
-        if f.existed {
-            let data = io(std::fs::read(safe_join(&dir.join("files"), &f.store_path)?), &dir)?;
-            if sha256(&data) != f.sha256 {
-                return err(format!("snapshot file {} is damaged", f.store_path));
-            }
-            atomic_write(&target, &data, f.mode)?;
-        } else if target.exists() {
-            io(std::fs::remove_file(&target), &target)?;
-        }
-    }
+    let dir = snap_dir(ctx).join(&s.id);
     // a staged logout restore must not run after an undo
     let _ = std::fs::remove_dir_all(pending_dir(ctx));
     let _ = std::fs::remove_file(ctx.roots.config.join(scan::PENDING_SCRIPT));
+    let mut inc = Incoming::default();
+    for f in &s.files {
+        let target = ctx.roots.abs(&f.store_path)?;
+        if !f.existed {
+            if target.exists() {
+                io(std::fs::remove_file(&target), &target)?;
+            }
+            continue;
+        }
+        let data = io(std::fs::read(safe_join(&dir.join("files"), &f.store_path)?), &dir)?;
+        if sha256(&data) != f.sha256 {
+            return err(format!("snapshot file {} is damaged", f.store_path));
+        }
+        let entry = ctx.catalog.find(&f.store_path);
+        match entry.filter(|_| ctx.plasma_running()) {
+            // Plasma is running: go through the same safe strategies as a restore
+            Some(e) => {
+                let mk = |scope, content| Desired { store_path: f.store_path.clone(), category: e.category.clone(), scope, kind: if e.kind == Kind::Dir { Kind::File } else { e.kind }, apply: e.apply, reload: e.reload.clone(), content: Content::Bytes(content) };
+                match (e.kind == Kind::Kconfig).then(|| std::str::from_utf8(&data).ok().and_then(|t| KConfig::parse(t).ok())).flatten() {
+                    Some(kc) => {
+                        let (shared, machine) = scan::kconfig_parts(e, kc);
+                        inc.files.push(mk(Scope::Shared, shared.to_text().into_bytes()));
+                        inc.files.push(mk(Scope::Machine, machine.to_text().into_bytes()));
+                    }
+                    None => inc.files.push(mk(e.scope, data)),
+                }
+            }
+            None => atomic_write(&target, &data, f.mode)?,
+        }
+    }
+    if !inc.files.is_empty() {
+        crate::apply::apply(ctx, &inc, &format!("before undo of {}", s.label), true, false)?;
+    }
     Ok(s)
 }

@@ -121,6 +121,23 @@ fn snapshot_then_undo_is_byte_identical() {
 }
 
 #[test]
+fn undo_while_plasma_runs_uses_safe_strategies() {
+    let (a, out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let s = Store::create(out.path()).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None).unwrap();
+    let t = World::new(b.path(), "bbbb", false);
+    t.put("kwinrc", "[Windows]\nBorderSnapZone=5\n");
+    let id = apply::apply(&t.ctx, &store::load(&t.ctx, &s, None).unwrap(), "restore", false, false).unwrap().snapshot.unwrap().id;
+    assert!(t.read("kwinrc").contains("BorderSnapZone=10"));
+    let t = World { ctx: t.ctx.with_runner(t.rec.clone(), Some(true)), rec: t.rec };
+    store::undo(&t.ctx, Some(&id)).unwrap();
+    let calls: Vec<String> = t.rec.calls().iter().map(Cmd::line).collect();
+    let kw = t.cfg("kwinrc").display().to_string();
+    assert!(calls.contains(&format!("kwriteconfig6 --file {kw} --group Windows --key BorderSnapZone 5")), "{calls:?}");
+    assert!(t.read("kwinrc").contains("BorderSnapZone=10"), "kwrite file must not be overwritten while Plasma runs");
+}
+
+#[test]
 fn malicious_backup_is_rejected_before_any_write() {
     let (out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let t = World::new(b.path(), "bbbb", false);

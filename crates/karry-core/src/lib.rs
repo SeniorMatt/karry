@@ -1,3 +1,12 @@
+//! Karry core: back up, restore and sync a KDE Plasma setup.
+//!
+//! catalog.toml says what to copy and how (scope shared/machine/secret, apply strategy).
+//! scan reads the system, store writes/reads/validates backups and snapshots, apply turns a backup
+//! into key-level changes and runs them safely (kwriteconfig6 while Plasma runs, staged for logout,
+//! plasmashell restarted around its own file), shortcuts checks kglobalshortcutsrc, sync merges
+//! machines through a shared folder or git. Rules: secrets are never read, machine files never
+//! leave their machine, every write is preceded by a snapshot.
+
 pub mod apply;
 pub mod catalog;
 pub mod kconfig;

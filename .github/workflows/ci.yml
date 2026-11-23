@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: branch to build
+        required: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake qt6-base qt6-declarative kirigami kconfig
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - run: cargo test --workspace --exclude karry-app
+      - run: cargo build --release --workspace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: karry
+          path: |
+            target/release/karry
+            target/release/karry-cli
