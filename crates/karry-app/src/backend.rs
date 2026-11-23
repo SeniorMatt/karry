@@ -110,7 +110,8 @@ fn refreshed(ctx: &Ctx, extra: Value) -> Result<Out, Error> {
     let hashy = host.len() >= 12 && host.chars().all(|c| c.is_ascii_hexdigit()) || host == "unknown";
     status["machine"]["hostname"] = json!(pretty.unwrap_or_else(|| if hashy { "This computer".into() } else { host.into() }));
     if let Some(m) = store.as_ref().and_then(|s| s.manifest(&Part::Shared).ok().flatten()) {
-        status["synced"] = json!(m.last_sync.clone().unwrap_or(m.created.clone()));
+        let mine = store.as_ref().and_then(|s| s.manifest(&Part::Machine(me["id"].as_str().unwrap_or_default().into())).ok().flatten());
+        status["synced"] = json!(mine.and_then(|m| m.last_sync).unwrap_or_default());
         if m.machine.id != me["id"].as_str().unwrap_or_default() {
             status["found"] = json!(m.machine);
         }

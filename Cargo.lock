@@ -399,7 +399,7 @@ dependencies = [
 
 [[package]]
 name = "karry-app"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cxx",
  "cxx-qt",
@@ -412,7 +412,7 @@ dependencies = [
 
 [[package]]
 name = "karry-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "karry-core",
  "serde",
@@ -421,7 +421,7 @@ dependencies = [
 
 [[package]]
 name = "karry-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "hex",
  "regex",

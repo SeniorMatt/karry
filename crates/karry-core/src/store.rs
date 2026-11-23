@@ -393,6 +393,15 @@ pub fn undo(ctx: &Ctx, id: Option<&str>) -> Result<Snapshot> {
     }
     if !inc.files.is_empty() {
         crate::apply::apply(ctx, &inc, &format!("before undo of {}", s.label), true, false)?;
+        // kwriteconfig reorders keys: when the content is the same, put the exact old bytes back
+        for f in s.files.iter().filter(|f| f.existed) {
+            let (Ok(target), Ok(old)) = (ctx.roots.abs(&f.store_path), std::fs::read(dir.join("files").join(&f.store_path))) else { continue };
+            let parse = |b: &[u8]| std::str::from_utf8(b).ok().and_then(|t| KConfig::parse(t).ok()).map(|k| k.flat());
+            let now = std::fs::read(&target).unwrap_or_default();
+            if now != old && parse(&old).is_some() && parse(&old) == parse(&now) {
+                atomic_write(&target, &old, f.mode)?;
+            }
+        }
     }
     Ok(s)
 }

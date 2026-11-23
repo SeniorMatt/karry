@@ -59,7 +59,7 @@ Kirigami.ScrollablePage {
         }
         Repeater {
             model: p.incoming || []
-            QQC2.Label { required property var modelData; text: modelData.machine + ": " + modelData.summary }
+            QQC2.Label { required property var modelData; Layout.fillWidth: true; elide: Text.ElideMiddle; text: modelData.summary }
         }
         Kirigami.PlaceholderMessage {
             Layout.fillWidth: true

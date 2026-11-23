@@ -122,16 +122,20 @@ pub fn diagnose(text: &str, inst: &Installed) -> Result<Vec<ShortcutIssue>> {
         acts.push((g, k, split_keys(&a).iter().map(|s| normalize(s)).collect::<Vec<_>>(), split_keys(&d).iter().map(|s| normalize(s)).collect::<Vec<_>>(), f));
     }
     let mut issues = vec![];
-    let bind = |a: &(String, String, Vec<String>, Vec<String>, String), key: &str| Binding { group: a.0.clone(), action: a.1.clone(), friendly: if a.4.is_empty() { a.1.clone() } else { a.4.clone() }, key: key.into() };
+    let flat = kc.flat();
+    let bind = |a: &(String, String, Vec<String>, Vec<String>, String), key: &str| {
+        let app = || flat.get(&(a.0.clone(), "_k_friendly_name".into())).cloned().unwrap_or_else(|| component(&a.0).trim_end_matches(".desktop").to_string());
+        Binding { group: a.0.clone(), action: a.1.clone(), friendly: if !a.4.is_empty() { a.4.clone() } else if a.1.starts_with('_') { app() } else { a.1.clone() }, key: key.into() }
+    };
     let fixes_for = |bs: &[Binding], dup: bool| -> Vec<Fix> {
         let mut fx = vec![];
         for (n, b) in bs.iter().enumerate() {
             if dup {
                 let ops = bs.iter().filter(|o| *o != b).map(|o| FixOp::Unbind { group: o.group.clone(), action: o.action.clone(), key: Some(o.key.clone()) }).collect();
-                fx.push(Fix { id: format!("keep-{n}"), label: format!("Keep it on \"{}\"", b.friendly), needs_input: false, ops });
+                fx.push(Fix { id: format!("keep-{n}"), label: format!("Keep on \"{}\"", b.friendly), needs_input: false, ops });
             }
-            fx.push(Fix { id: format!("reset-{n}"), label: format!("Reset \"{}\" to its default", b.friendly), needs_input: false, ops: vec![FixOp::Reset { group: b.group.clone(), action: b.action.clone() }] });
-            fx.push(Fix { id: format!("rebind-{n}"), label: format!("Choose a new shortcut for \"{}\"", b.friendly), needs_input: true, ops: vec![FixOp::Rebind { group: b.group.clone(), action: b.action.clone() }] });
+            fx.push(Fix { id: format!("reset-{n}"), label: format!("Reset \"{}\"", b.friendly), needs_input: false, ops: vec![FixOp::Reset { group: b.group.clone(), action: b.action.clone() }] });
+            fx.push(Fix { id: format!("rebind-{n}"), label: format!("Rebind \"{}\"", b.friendly), needs_input: true, ops: vec![FixOp::Rebind { group: b.group.clone(), action: b.action.clone() }] });
         }
         fx
     };
@@ -153,7 +157,7 @@ pub fn diagnose(text: &str, inst: &Installed) -> Result<Vec<ShortcutIssue>> {
         let c = component(&a.0);
         if c.ends_with(".desktop") && !inst.desktop_files.contains(&c) && seen.insert(a.0.clone()) {
             let b = Binding { group: a.0.clone(), action: String::new(), friendly: c.clone(), key: String::new() };
-            let fix = Fix { id: "remove".into(), label: format!("Remove the shortcuts of {c}"), needs_input: false, ops: vec![FixOp::RemoveGroup { group: a.0.clone() }] };
+            let fix = Fix { id: "remove".into(), label: "Remove shortcuts".to_string(), needs_input: false, ops: vec![FixOp::RemoveGroup { group: a.0.clone() }] };
             issues.push(ShortcutIssue { id: format!("orphan-app:{}", a.0), kind: IssueKind::OrphanApp, message: format!("{c} is not installed"), bindings: vec![b], fixes: vec![fix] });
         }
     }

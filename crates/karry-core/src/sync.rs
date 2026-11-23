@@ -98,7 +98,11 @@ impl Backend for GitBackend {
     }
     fn push(&self, ctx: &Ctx, msg: &str) -> Result<bool> {
         self.git(ctx, &["add", "-A"])?;
-        let _ = self.git(ctx, &["commit", "-q", "-m", msg]);
+        let committed = self.git(ctx, &["commit", "-q", "-m", msg]).is_ok_and(|o| o.code == 0);
+        // no git identity set up: commit as Karry rather than fail with "src refspec HEAD"
+        if !committed && self.git(ctx, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok_and(|o| o.code != 0) {
+            let _ = self.git(ctx, &["-c", "user.name=Karry", "-c", "user.email=karry@localhost", "commit", "-q", "-m", msg]);
+        }
         if !self.has_remote(ctx) {
             return Ok(false);
         }
@@ -197,7 +201,7 @@ pub fn sync(ctx: &Ctx, store: &Store, backend: &dyn Backend, opts: &SyncOptions)
     if !v.errors.is_empty() {
         return Err(Error::Validation(v.errors));
     }
-    rep.warnings = v.warnings;
+    rep.warnings = v.warnings.into_iter().filter(|w| !w.contains("different machine")).collect(); // other machines' dirs are normal in a shared store
     let me = MachineInfo::detect(ctx);
     let inv = scan::scan(ctx)?;
     let remote_m = store.manifest(&Part::Shared)?;

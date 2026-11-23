@@ -34,7 +34,7 @@ Kirigami.ScrollablePage {
             contentItem: RowLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
-                    Kirigami.Heading { level: 4; text: modelData.label }
+                    Kirigami.Heading { Layout.fillWidth: true; level: 4; text: modelData.label }
                     QQC2.Label { opacity: 0.7; text: new Date(modelData.created).toLocaleString(Qt.locale(), Locale.ShortFormat) + " · " + (modelData.files.length === 1 ? qsTr("%1 file") : qsTr("%1 files")).arg(modelData.files.length) }
                 }
                 QQC2.Button {

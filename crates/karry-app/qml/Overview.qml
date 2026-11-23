@@ -14,8 +14,8 @@ Kirigami.ScrollablePage {
     readonly property var cats: st ? st.categories.slice().sort((a, b) => (b.items > 0) - (a.items > 0)) : []
     readonly property var hero: [
         { icon: "emblem-ok-symbolic", color: Kirigami.Theme.positiveTextColor, text: qsTr("Everything is in sync") },
-        { icon: "view-refresh-symbolic", color: Kirigami.Theme.highlightColor, text: qsTr("%1 local changes to sync").arg(changes) },
-        { icon: "dialog-warning-symbolic", color: Kirigami.Theme.neutralTextColor, text: qsTr("%1 shortcut problems").arg(problems) }
+        { icon: "view-refresh-symbolic", color: Kirigami.Theme.highlightColor, text: (changes === 1 ? qsTr("1 local change to sync") : qsTr("%1 local changes to sync").arg(changes)) },
+        { icon: "dialog-warning-symbolic", color: Kirigami.Theme.neutralTextColor, text: (problems === 1 ? qsTr("1 shortcut problem") : qsTr("%1 shortcut problems").arg(problems)) }
     ]
     function ago(iso) {
         const m = Math.round((Date.now() - Date.parse(iso)) / 60000)
@@ -140,7 +140,7 @@ Kirigami.ScrollablePage {
                         ColumnLayout {
                             Layout.fillWidth: true
                             spacing: Kirigami.Units.smallSpacing
-                            Kirigami.Heading { level: 4; text: card.modelData.name }
+                            Kirigami.Heading { Layout.fillWidth: true; level: 4; text: card.modelData.name }
                             QQC2.Label { opacity: 0.7; text: card.modelData.items === 1 ? qsTr("1 item") : qsTr("%1 items").arg(card.modelData.items) }
                             Flow {
                                 Layout.fillWidth: true
@@ -148,7 +148,7 @@ Kirigami.ScrollablePage {
                                 spacing: Kirigami.Units.smallSpacing
                                 Kirigami.Chip { visible: card.modelData.changed > 0 && card.modelData.items > 0; closable: false; checkable: false; text: qsTr("%1 changed").arg(card.modelData.changed) }
                                 Kirigami.Chip { visible: card.modelData.machine_only; closable: false; checkable: false; icon.name: "lock"; text: qsTr("This machine only") }
-                                Kirigami.Chip { visible: card.modelData.issues > 0; closable: false; checkable: false; icon.name: "dialog-warning"; text: qsTr("%1 issues").arg(card.modelData.issues) }
+                                Kirigami.Chip { visible: card.modelData.issues > 0; closable: false; checkable: false; icon.name: "dialog-warning"; text: (card.modelData.issues === 1 ? qsTr("1 issue") : qsTr("%1 issues").arg(card.modelData.issues)) }
                             }
                         }
                     }
@@ -165,7 +165,7 @@ Kirigami.ScrollablePage {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
-                    Kirigami.Heading { level: 4; text: qsTr("Last snapshot") }
+                    Kirigami.Heading { Layout.fillWidth: true; level: 4; text: qsTr("Last snapshot") }
                     QQC2.Label { opacity: 0.7; text: page.st && page.st.last_snapshot ? page.st.last_snapshot.label + " · " + page.st.last_snapshot.created : "" }
                 }
                 QQC2.Button { flat: true; icon.name: "edit-undo"; text: qsTr("Undo"); enabled: !Backend.busy; onClicked: Backend.undo(page.st.last_snapshot.id) }

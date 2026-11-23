@@ -278,8 +278,9 @@ fn folder_sync_merges_keys_and_reports_conflicts() {
     let go = |w: &World| sync::sync(&w.ctx, &st, &be, &SyncOptions::default()).unwrap();
     wa.put("kwinrc", "[Windows]\nx=1\ny=1\nz=1\n");
     wb.put("kwinrc", "[Windows]\nx=1\ny=1\nz=1\n");
+    wa.put("kwinoutputconfig.json", "{}");
     go(&wa);
-    go(&wb);
+    assert!(go(&wb).warnings.is_empty(), "other machines' folders are not worth a warning");
     wa.put("kwinrc", "[Windows]\nx=2\ny=1\nz=1\n");
     wb.put("kwinrc", "[Windows]\nx=1\ny=3\nz=1\n");
     assert_eq!(go(&wa).published, vec!["config/kwinrc"]);
@@ -396,4 +397,37 @@ fn qml_kwin_script_shortcuts_are_known_and_restore_does_not_flag_them() {
     assert!(r.plan.shortcut_issues.iter().all(|i| i.kind != IssueKind::OrphanKwinAction), "{:?}", r.plan.shortcut_issues);
     apply::apply(&n.ctx, &store::load(&n.ctx, &s, None).unwrap(), "restore", false, false).unwrap();
     assert_eq!(orphans(&n.ctx), 0);
+}
+
+#[test]
+fn launch_actions_show_the_app_name_and_fix_labels_stay_short() {
+    let text = "[org.kde.konsole.desktop]\n_k_friendly_name=Konsole\n_launch=Meta+T,none,\n\n[kwin]\nFoo=Meta+T,none,Foo\n";
+    let issues = shortcuts::diagnose(text, &Installed::default()).unwrap();
+    let dup = issues.iter().find(|i| i.kind == IssueKind::Duplicate).unwrap();
+    assert!(dup.bindings.iter().any(|b| b.friendly == "Konsole"), "{:?}", dup.bindings);
+    assert!(dup.bindings.iter().all(|b| b.friendly != "_launch"));
+    assert!(dup.fixes.iter().all(|f| f.label.len() < 24), "{:?}", dup.fixes.iter().map(|f| &f.label).collect::<Vec<_>>());
+}
+
+#[test]
+fn undo_while_plasma_runs_restores_exact_bytes_when_only_order_changed() {
+    let (a, out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let s = Store::create(out.path()).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
+    let t = World::new(b.path(), "bbbb", false);
+    let mine = "[Windows]\nZ=1\nBorderSnapZone=5\n";
+    t.put("kwinrc", mine);
+    let id = apply::apply(&t.ctx, &store::load(&t.ctx, &s, None).unwrap(), "restore", false, false).unwrap().snapshot.unwrap().id;
+    t.put("kwinrc", "[Windows]\nBorderSnapZone=5\nZ=1\n"); // what kwriteconfig6 leaves behind: sorted keys
+    let t = World { ctx: t.ctx.with_runner(t.rec.clone(), Some(true)), rec: t.rec };
+    store::undo(&t.ctx, Some(&id)).unwrap();
+    assert_eq!(t.read("kwinrc"), mine);
+}
+
+#[test]
+fn git_commit_falls_back_to_a_default_identity() {
+    let w = World::new(tempfile::tempdir().unwrap().path(), "gggg", false);
+    w.rec.respond("git", 1, "");
+    sync::GitBackend { root: w.ctx.roots.config.join("repo") }.push(&w.ctx, "m").unwrap();
+    assert!(w.rec.calls().iter().any(|c| c.line().contains("user.name=Karry") && c.line().contains("commit")));
 }
