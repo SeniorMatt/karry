@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/karry-core", "crates/karry-cli"]
+members = ["crates/karry-core", "crates/karry-cli", "crates/karry-app"]
 
 [workspace.package]
 version = "0.1.0"

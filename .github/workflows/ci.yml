@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
-      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake qt6-base qt6-declarative kirigami kconfig
+      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake qt6-base qt6-declarative kirigami kconfig qt6-svg qqc2-desktop-style
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}

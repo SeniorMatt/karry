@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Karry
+GenericName=Settings backup and sync
+Comment=Back up, restore and sync your Plasma setup
+Exec=karry
+Icon=org.kde.karry
+Categories=Qt;KDE;Utility;
+Terminal=false
+StartupNotify=true
