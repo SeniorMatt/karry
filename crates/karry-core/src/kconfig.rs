@@ -95,7 +95,7 @@ impl KConfig {
                     lines.push(Line::Other(raw.into()));
                 } else if t.starts_with('[') && t.ends_with(']') {
                     let mut path = group_path(t);
-                    if path.last().map_or(false, |l| l.len() > 1 && l.starts_with('$') && l[1..].chars().all(|c| "idear".contains(c))) {
+                    if path.last().is_some_and(|l| l.len() > 1 && l.starts_with('$') && l[1..].chars().all(|c| "idear".contains(c))) {
                         path.pop();
                     }
                     if path.is_empty() {
@@ -181,7 +181,7 @@ impl KConfig {
         } else if group.is_empty() {
             self.lines.insert(0, new_entry(key, val));
         } else {
-            if self.lines.last().map_or(false, |l| !l.raw().trim().is_empty()) {
+            if self.lines.last().is_some_and(|l| !l.raw().trim().is_empty()) {
                 self.lines.push(Line::Other(String::new()));
             }
             self.lines.push(Line::Group(group.into(), group.into()));

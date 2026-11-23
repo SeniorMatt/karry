@@ -18,6 +18,7 @@ Kirigami.ApplicationWindow {
         pageStack.replace(page)
     }
     function showOverview() { pageStack.replace(overview) }
+    function showShortcuts() { pageStack.replace(shortcutsPage) }
     function copy(text) {
         clip.text = text
         clip.selectAll()
@@ -36,8 +37,8 @@ Kirigami.ApplicationWindow {
         if (dbg === "snapshots") go(snapshotsPage)
     }
 
-    globalDrawer: Kirigami.GlobalDrawer {
-        visible: !root.firstRun
+    globalDrawer: root.firstRun ? null : drawerC.createObject(root)
+    Component { id: drawerC; Kirigami.GlobalDrawer {
         isMenu: false
         collapsible: true
         collapseButtonVisible: false
@@ -49,7 +50,7 @@ Kirigami.ApplicationWindow {
             Kirigami.Action { text: qsTr("Shortcuts"); icon.name: "preferences-desktop-keyboard-shortcut"; onTriggered: root.go(shortcutsPage) },
             Kirigami.Action { text: qsTr("Snapshots"); icon.name: "edit-undo-history"; onTriggered: root.go(snapshotsPage) }
         ]
-    }
+    } }
 
     Component { id: wizard; Wizard {} }
     Component { id: overview; Overview {} }

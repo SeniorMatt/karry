@@ -266,8 +266,7 @@ fn shortcut_doctor_finds_and_fixes() {
 }
 
 fn machine(dir: &Path, id: &str) -> World {
-    let w = World::new(dir, id, false);
-    w
+    World::new(dir, id, false)
 }
 
 #[test]
@@ -378,4 +377,23 @@ fn shortcut_fixes_stack_in_the_staged_file_while_plasma_runs() {
     assert_eq!(w.read("kglobalshortcutsrc"), live, "live file must stay untouched");
     let staged = std::fs::read_to_string(store::pending_dir(&w.ctx).join("files/config/kglobalshortcutsrc")).unwrap();
     assert!(shortcuts::diagnose(&staged, &Installed::scan(&w.ctx)).unwrap().len() <= n - 2);
+}
+
+#[test]
+fn qml_kwin_script_shortcuts_are_known_and_restore_does_not_flag_them() {
+    let (a, o, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let w = World::new(a.path(), "aaaa-source-machine", false);
+    let script = w.ctx.roots.data.join("kwin/scripts/zones");
+    put(&script.join("metadata.json"), br#"{"KPackageStructure":"KWin/Script","KPlugin":{"Id":"zones","Name":"Zones"}}"#);
+    put(&script.join("contents/ui/Keys.qml"), b"Item {\n  ShortcutHandler {\n    name: \"Zones: Toggle\"\n    sequence: \"Meta+Z\"\n  }\n}\n");
+    w.put("kglobalshortcutsrc", "[kwin]\nZones: Toggle=Meta+Z,none,Zones: Toggle\n");
+    let orphans = |ctx: &Ctx| shortcuts::diagnose_system(ctx).into_iter().filter(|i| i.kind == IssueKind::OrphanKwinAction).count();
+    assert_eq!(orphans(&w.ctx), 0);
+    let s = Store::create(o.path()).unwrap();
+    store::backup(&w.ctx, &s, None, false).unwrap();
+    let n = machine(b.path(), "bbbb-other-machine");
+    let r = apply::apply(&n.ctx, &store::load(&n.ctx, &s, None).unwrap(), "restore", false, true).unwrap();
+    assert!(r.plan.shortcut_issues.iter().all(|i| i.kind != IssueKind::OrphanKwinAction), "{:?}", r.plan.shortcut_issues);
+    apply::apply(&n.ctx, &store::load(&n.ctx, &s, None).unwrap(), "restore", false, false).unwrap();
+    assert_eq!(orphans(&n.ctx), 0);
 }

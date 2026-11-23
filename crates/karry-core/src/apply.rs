@@ -104,6 +104,10 @@ pub fn plan(ctx: &Ctx, inc: &Incoming, autostart_opt_in: bool) -> Result<Plan> {
             p.changes.push(mk(What::NeedsLogout { reason: "staged; applied at next login".into() }));
         }
     }
+    // KWin scripts this plan copies will register their shortcuts, so their actions are not orphans yet
+    if p.changes.iter().any(|c| c.store_path.starts_with("data/kwin/scripts/")) {
+        p.shortcut_issues.retain(|i| i.kind != shortcuts::IssueKind::OrphanKwinAction);
+    }
     for h in plugins::hints(ctx, &inc.plugins) {
         p.changes.push(Change { category: "plugins".into(), store_path: String::new(), abs: String::new(), apply: Apply::Package, reload: vec![], what: What::InstallHint { id: h.id, package: h.package, command: h.command } });
     }

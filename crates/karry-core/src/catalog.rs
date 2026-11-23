@@ -127,7 +127,7 @@ impl Catalog {
         let mut c = Catalog::default();
         c.add(include_str!("../../../data/catalog.toml"))?;
         if let Ok(rd) = std::fs::read_dir(roots.config.join("karry/catalog.d")) {
-            let mut files: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().map_or(false, |x| x == "toml")).collect();
+            let mut files: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "toml")).collect();
             files.sort();
             for f in files {
                 let t = crate::io(std::fs::read_to_string(&f), &f)?;
@@ -205,9 +205,9 @@ impl Catalog {
                 let s = spec.replacen(':', "/", 1);
                 let s = s.trim_end_matches('/');
                 let hit = if spec.ends_with('/') {
-                    sp == s || sp.strip_prefix(s).map_or(false, |r| r.starts_with('/'))
+                    sp == s || sp.strip_prefix(s).is_some_and(|r| r.starts_with('/'))
                 } else if let Some((dir, name)) = s.rsplit_once('/').filter(|(_, n)| n.contains('*')) {
-                    sp.rsplit_once('/').map_or(false, |(d, n)| d == dir && glob_re(name).is_match(n))
+                    sp.rsplit_once('/').is_some_and(|(d, n)| d == dir && glob_re(name).is_match(n))
                 } else {
                     sp == s
                 };

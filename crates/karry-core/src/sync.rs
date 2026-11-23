@@ -47,7 +47,7 @@ impl GitBackend {
         ctx.runner.run(&Cmd::new("git", &a)).map_err(|e| Error::Msg(format!("git: {e}")))
     }
     fn has_remote(&self, ctx: &Ctx) -> bool {
-        self.git(ctx, &["remote"]).map_or(false, |o| o.code == 0 && !o.stdout.trim().is_empty())
+        self.git(ctx, &["remote"]).is_ok_and(|o| o.code == 0 && !o.stdout.trim().is_empty())
     }
 }
 impl Backend for GitBackend {
@@ -136,7 +136,7 @@ pub fn init_git(ctx: &Ctx, url: &str) -> Result<Config> {
     if !dir.exists() {
         io(std::fs::create_dir_all(dir.parent().unwrap()), &dir)?;
         let d = dir.to_str().unwrap();
-        let ok = ctx.runner.run(&Cmd::new("git", &["clone", "-q", url, d])).map_or(false, |o| o.code == 0);
+        let ok = ctx.runner.run(&Cmd::new("git", &["clone", "-q", url, d])).is_ok_and(|o| o.code == 0);
         if !ok && !dir.exists() {
             io(std::fs::create_dir_all(&dir), &dir)?;
             for a in [&["init", "-q"][..], &["remote", "add", "origin", url]] {

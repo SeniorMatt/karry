@@ -75,7 +75,7 @@ fn expand(ctx: &Ctx, spec: &str) -> Vec<PathBuf> {
 fn is_desktop_kde_app(ctx: &Ctx, stem: &str) -> bool {
     ctx.roots.data_dirs().iter().any(|d| {
         [format!("{stem}.desktop"), format!("org.kde.{stem}.desktop")].iter().any(|n| {
-            std::fs::read_to_string(d.join("applications").join(n)).map_or(false, |t| t.contains("X-KDE-") || t.contains("KDE;"))
+            std::fs::read_to_string(d.join("applications").join(n)).is_ok_and(|t| t.contains("X-KDE-") || t.contains("KDE;"))
         })
     })
 }

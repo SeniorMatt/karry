@@ -74,6 +74,7 @@ Kirigami.ScrollablePage {
                     }
                     Kirigami.Heading { Layout.alignment: Qt.AlignHCenter; level: 1; text: h.modelData.text }
                     QQC2.Label { Layout.alignment: Qt.AlignHCenter; opacity: 0.7; text: page.ago(page.st ? page.st.synced : "") }
+                    QQC2.Button { visible: h.index === 2; flat: true; icon.name: "go-next"; Layout.alignment: Qt.AlignHCenter; text: qsTr("Review shortcuts"); onClicked: applicationWindow().showShortcuts() }
                 }
             }
         }

@@ -76,8 +76,17 @@ Kirigami.ScrollablePage {
                 Layout.fillWidth: true
                 header: Kirigami.Heading { level: 4; text: qsTr("Conflict: %1 › %2").arg(cf.modelData.group).arg(cf.modelData.key || cf.modelData.store_path) }
                 contentItem: ColumnLayout {
-                    QQC2.RadioButton { checked: true; text: qsTr("Keep local: %1").arg(cf.modelData.local ?? qsTr("(unset)")); onToggled: page.pick(cf.modelData, false) }
-                    QQC2.RadioButton { text: qsTr("Use remote: %1").arg(cf.modelData.remote ?? qsTr("(unset)")); onToggled: page.pick(cf.modelData, true) }
+                    Repeater {
+                        model: [false, true]
+                        delegate: QQC2.RadioButton {
+                            required property bool modelData
+                            Layout.fillWidth: true
+                            checked: !modelData
+                            text: (modelData ? qsTr("Use remote: %1").arg(cf.modelData.remote ?? qsTr("(unset)")) : qsTr("Keep local: %1").arg(cf.modelData.local ?? qsTr("(unset)")))
+                            onToggled: page.pick(cf.modelData, modelData)
+                            contentItem: QQC2.Label { text: parent.text; wrapMode: Text.Wrap; leftPadding: parent.indicator.width + parent.spacing; verticalAlignment: Text.AlignVCenter }
+                        }
+                    }
                 }
             }
         }

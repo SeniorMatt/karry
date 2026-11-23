@@ -43,7 +43,7 @@ impl Store {
     pub fn open(root: &Path) -> Result<Store> {
         let f = root.join("karry.json");
         let v: serde_json::Value = serde_json::from_str(&io(std::fs::read_to_string(&f), &f)?).map_err(|e| Error::Msg(format!("{}: {e}", f.display())))?;
-        if v["format"].as_u64().map_or(true, |n| n > FORMAT as u64) {
+        if v["format"].as_u64().is_none_or(|n| n > FORMAT as u64) {
             return err("unsupported backup format");
         }
         Ok(Store { root: root.into() })
@@ -105,7 +105,7 @@ pub fn backup(ctx: &Ctx, store: &Store, only: Option<&[String]>, force: bool) ->
         }
     }
     let (mut sh, mut ma) = (vec![], vec![]);
-    for mut it in inv.items.into_iter().filter(|i| only.map_or(true, |o| o.contains(&i.category))) {
+    for mut it in inv.items.into_iter().filter(|i| only.is_none_or(|o| o.contains(&i.category))) {
         let part = if it.scope == Scope::Shared { &Part::Shared } else { &mid };
         store.write(part, &it.store_path, &it.bytes()?)?;
         it.by = Some(me.hostname.clone());
@@ -249,7 +249,7 @@ pub fn validate(ctx: &Ctx, store: &Store) -> Report {
             while let Some(a) = anc.filter(|a| !a.exists()) {
                 anc = a.parent();
             }
-            if anc.map_or(true, |a| !a.is_dir() || std::fs::metadata(a).map_or(true, |m| m.permissions().readonly())) {
+            if anc.is_none_or(|a| !a.is_dir() || std::fs::metadata(a).map_or(true, |m| m.permissions().readonly())) {
                 bad("target folder is not writable");
             }
         }
@@ -270,7 +270,7 @@ pub fn load(ctx: &Ctx, store: &Store, only: Option<&[String]>) -> Result<Incomin
             inc.plugins = m.plugins.clone();
             inc.source = Some(m.machine.clone());
         }
-        for it in m.items.iter().filter(|i| only.map_or(true, |o| o.contains(&ctx.catalog.find(&i.store_path).map(|e| e.category.clone()).unwrap_or_default()))) {
+        for it in m.items.iter().filter(|i| only.is_none_or(|o| o.contains(&ctx.catalog.find(&i.store_path).map(|e| e.category.clone()).unwrap_or_default()))) {
             let e = ctx.catalog.find(&it.store_path).unwrap();
             inc.files.push(Desired {
                 store_path: it.store_path.clone(),

@@ -80,14 +80,14 @@ Kirigami.Page {
         id: where
         ColumnLayout {
             spacing: Kirigami.Units.largeSpacing
+            Item { Layout.fillHeight: true }
             Kirigami.Heading { text: qsTr("Where should Karry keep your setup?"); Layout.alignment: Qt.AlignHCenter }
             RowLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
                 uniformCellSizes: true
                 spacing: Kirigami.Units.largeSpacing
                 Kirigami.AbstractCard {
-                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.fillWidth: true; Layout.alignment: Qt.AlignTop
                     contentItem: ColumnLayout {
                         spacing: Kirigami.Units.largeSpacing
                         Kirigami.Icon { source: "folder-cloud"; Layout.alignment: Qt.AlignHCenter; implicitWidth: Kirigami.Units.iconSizes.huge; implicitHeight: implicitWidth }
@@ -99,10 +99,10 @@ Kirigami.Page {
                     }
                 }
                 Kirigami.AbstractCard {
-                    Layout.fillWidth: true; Layout.fillHeight: true
+                    Layout.fillWidth: true; Layout.alignment: Qt.AlignTop
                     contentItem: ColumnLayout {
                         spacing: Kirigami.Units.largeSpacing
-                        Kirigami.Icon { source: "vcs-normal"; Layout.alignment: Qt.AlignHCenter; implicitWidth: Kirigami.Units.iconSizes.huge; implicitHeight: implicitWidth }
+                        Kirigami.Icon { source: "network-server"; Layout.alignment: Qt.AlignHCenter; implicitWidth: Kirigami.Units.iconSizes.huge; implicitHeight: implicitWidth }
                         Kirigami.Heading { level: 3; text: qsTr("A git remote"); Layout.alignment: Qt.AlignHCenter }
                         QQC2.TextField { id: url; Layout.fillWidth: true; placeholderText: "git@example.org:me/karry.git" }
                         Item { Layout.fillHeight: true }
@@ -111,6 +111,7 @@ Kirigami.Page {
                 }
             }
             QQC2.ProgressBar { Layout.fillWidth: true; indeterminate: true; opacity: Backend.busy ? 1 : 0; Behavior on opacity { NumberAnimation { duration: Kirigami.Units.longDuration } } }
+            Item { Layout.fillHeight: true }
         }
     }
     Component {
@@ -118,7 +119,9 @@ Kirigami.Page {
         ColumnLayout {
             Kirigami.Heading { text: qsTr("What should Karry include?"); Layout.alignment: Qt.AlignHCenter }
             QQC2.ScrollView {
+                Layout.alignment: Qt.AlignHCenter
                 Layout.fillWidth: true
+                Layout.maximumWidth: Kirigami.Units.gridUnit * 30
                 Layout.fillHeight: true
                 ColumnLayout {
                     width: parent.width
@@ -168,7 +171,7 @@ Kirigami.Page {
         Kirigami.PlaceholderMessage {
             icon.name: "folder-sync"
             text: page.found ? qsTr("Found the setup from %1").arg(page.found.hostname) : ""
-            explanation: page.found ? qsTr("%1, Plasma %2. Karry will show what changes on this computer before anything is applied.").arg(page.found.distro).arg(page.found.plasma || "?") : ""
+            explanation: page.found ? qsTr("%1. Karry will show what changes on this computer before anything is applied.").arg(page.found.distro + (page.found.plasma ? ", Plasma " + page.found.plasma : "")) : ""
             helpfulAction: Kirigami.Action { text: qsTr("Review changes"); icon.name: "go-next"; enabled: !Backend.busy; onTriggered: Backend.previewSync() }
         }
     }

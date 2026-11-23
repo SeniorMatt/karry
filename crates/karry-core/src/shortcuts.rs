@@ -58,15 +58,16 @@ impl Installed {
             }
         }
         let kwinrc = std::fs::read_to_string(ctx.roots.config.join("kwinrc")).ok().and_then(|t| KConfig::parse(&t).ok());
-        let re = Regex::new(r#"registerShortcut\(\s*["']([^"']+)["']"#).unwrap();
+        // JS scripts call registerShortcut("name", ...); QML scripts declare ShortcutHandler { name: "..." }
+        let re = Regex::new(r#"registerShortcut\(\s*["']([^"']+)["']|ShortcutHandler\s*\{[^}]*?\bname:\s*["']([^"']+)["']"#).unwrap();
         for f in crate::plugins::installed(&ctx.roots, &ctx.catalog).into_iter().filter(|f| f.entry_id == "kwin-scripts") {
             let off = kwinrc.as_ref().and_then(|k| k.get("[Plugins]", &format!("{}Enabled", f.id))).as_deref() == Some("false");
             if off {
                 continue;
             }
-            for e in walkdir::WalkDir::new(&f.path).into_iter().flatten().filter(|e| e.path().extension().map_or(false, |x| x == "js")) {
+            for e in walkdir::WalkDir::new(&f.path).into_iter().flatten().filter(|e| e.path().extension().is_some_and(|x| x == "js" || x == "qml")) {
                 if let Ok(t) = std::fs::read_to_string(e.path()) {
-                    i.kwin_script_actions.extend(re.captures_iter(&t).map(|c| c[1].to_string()));
+                    i.kwin_script_actions.extend(re.captures_iter(&t).filter_map(|c| c.get(1).or(c.get(2))).map(|m| m.as_str().to_string()));
                 }
             }
         }
@@ -106,7 +107,7 @@ fn fields(v: &str) -> (String, String, String) {
 }
 fn component(group: &str) -> String {
     let p = group_path(group);
-    if p.first().map_or(false, |f| f == "services") { p.get(1) } else { p.first() }.cloned().unwrap_or_default()
+    if p.first().is_some_and(|f| f == "services") { p.get(1) } else { p.first() }.cloned().unwrap_or_default()
 }
 
 pub fn diagnose(text: &str, inst: &Installed) -> Result<Vec<ShortcutIssue>> {
@@ -206,7 +207,7 @@ pub fn apply_fix(text: &str, fix: &Fix, input: Option<&str>) -> Result<String> {
             FixOp::Unbind { group, action, key } => {
                 let Some(cur) = kc.get(group, action) else { continue };
                 let (a, d, f) = fields(&cur);
-                let keep: Vec<String> = split_keys(&a).into_iter().filter(|k| key.as_ref().map_or(false, |x| normalize(k) != *x)).collect();
+                let keep: Vec<String> = split_keys(&a).into_iter().filter(|k| key.as_ref().is_some_and(|x| normalize(k) != *x)).collect();
                 kc.set(group, action, &format!("{},{d},{f}", if keep.is_empty() { "none".into() } else { keep.join("\\t") }));
             }
             FixOp::Reset { group, action } => {
