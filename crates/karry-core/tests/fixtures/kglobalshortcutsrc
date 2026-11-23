@@ -1,0 +1,48 @@
+[ActivityManager]
+_k_friendly_name=Activity Switcher
+switch-to-activity-aaaa=none,none,Switch to activity "Default"
+
+[kaccess]
+_k_friendly_name=Accessibility
+Toggle Screen Reader On and Off=Meta+Alt+S,Meta+Alt+S,Toggle Screen Reader On and Off
+
+[kwin]
+_k_friendly_name=KWin
+Overview=Meta+W,Meta+W,Toggle Overview
+Show Desktop=Meta+D,Meta+D,Peek at Desktop
+Window Close=Alt+F4,Alt+F4,Close Window
+Window Maximize=Meta+PgUp,Meta+PgUp,Maximize Window
+Switch to Desktop 1=Ctrl+F1\tMeta+1,Ctrl+F1,Switch to Desktop 1
+Switch to Desktop 2=Ctrl+F2,Ctrl+F2,Switch to Desktop 2
+Walk Through Windows=Alt+Tab,Alt+Tab,Walk Through Windows
+Krohnkite: Monocle Layout=Meta+M,none,Krohnkite: Monocle Layout
+Window to Next Screen=none,Meta+Shift+Right,Window to Next Screen
+Window to Previous Screen=Meta+Shift+Left,Meta+Shift+Left,Window to Previous Screen
+
+[org.kde.dolphin.desktop]
+_k_friendly_name=Dolphin
+_launch=Meta+E,Meta+E,Dolphin
+
+[org.kde.konsole.desktop]
+_k_friendly_name=Konsole
+_launch=Ctrl+Alt+T,Ctrl+Alt+T,Konsole
+NewTab=Shift+Meta+W,none,New tab
+
+[org.kde.krunner.desktop]
+_k_friendly_name=KRunner
+_launch=Alt+Space\tAlt+F2,Alt+Space\tAlt+F2,KRunner
+
+[org.kde.oldapp.desktop]
+_k_friendly_name=Old App
+_launch=Meta+O,none,Old App
+
+[plasmashell]
+_k_friendly_name=Plasma
+activate application launcher=Meta+Space\tnone,Alt+F1,Activate Application Launcher
+manage activities=Meta+Q,Meta+Q,Show Activity Switcher
+show dashboard=Ctrl+F12,Ctrl+F12,Show Desktop Dashboard
+
+[services][custom.desktop]
+_launch=Meta+Shift+W,none,Custom
+[services][firefox.desktop]
+_launch=Ctrl+Alt+Shift+F,none,Firefox

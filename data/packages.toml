@@ -1,0 +1,26 @@
+# Cross-distro package names for plugins and themes that come from system packages.
+# Key = plugin id or directory name found under a system dir. Missing entries fall back to asking the
+# local package manager which package owns the file (pacman -Qo / dpkg -S / rpm -qf / xbps-query -o / equery b)
+# and storing that name, plus a search hint for other distros.
+[families]
+arch   = { ids = ["arch", "cachyos", "endeavouros", "manjaro", "garuda"], install = "sudo pacman -S --needed {pkgs}", owner = "pacman -Qoq {path}" }
+debian = { ids = ["debian", "ubuntu", "kubuntu", "neon", "linuxmint", "pop"], install = "sudo apt install {pkgs}", owner = "dpkg -S {path}" }
+fedora = { ids = ["fedora", "nobara", "ultramarine"], install = "sudo dnf install {pkgs}", owner = "rpm -qf --qf %{NAME} {path}" }
+suse   = { ids = ["opensuse-tumbleweed", "opensuse-leap", "opensuse", "suse"], install = "sudo zypper install {pkgs}", owner = "rpm -qf --qf %{NAME} {path}" }
+void   = { ids = ["void"], install = "sudo xbps-install {pkgs}", owner = "xbps-query -o {path}" }
+gentoo = { ids = ["gentoo"], install = "sudo emerge --ask {pkgs}", owner = "equery -q b {path}" }
+alpine = { ids = ["alpine", "postmarketos"], install = "sudo apk add {pkgs}", owner = "apk info --who-owns {path}" }
+
+# id = { arch = "...", debian = "...", fedora = "...", suse = "..." }
+[map]
+"breeze"                 = { arch = "breeze", debian = "breeze", fedora = "plasma-breeze", suse = "breeze6-style" }
+"Papirus"                = { arch = "papirus-icon-theme", debian = "papirus-icon-theme", fedora = "papirus-icon-theme", suse = "papirus-icon-theme" }
+"Papirus-Dark"           = { arch = "papirus-icon-theme", debian = "papirus-icon-theme", fedora = "papirus-icon-theme", suse = "papirus-icon-theme" }
+"kvantum"                = { arch = "kvantum", debian = "qt6-style-kvantum", fedora = "kvantum", suse = "kvantum-qt6" }
+"org.kde.plasma.systemmonitor" = { arch = "plasma-workspace", debian = "plasma-workspace", fedora = "plasma-workspace", suse = "plasma6-workspace" }
+"org.kde.kdeconnect"     = { arch = "kdeconnect", debian = "kdeconnect", fedora = "kdeconnectd", suse = "kdeconnect-kde" }
+"org.kde.plasma.weather" = { arch = "kdeplasma-addons", debian = "kdeplasma-addons-data", fedora = "kdeplasma-addons", suse = "kdeplasma6-addons" }
+"klassy"                 = { arch = "klassy", fedora = "klassy", suse = "klassy" }
+"lightly"                = { arch = "lightly-kf6-git" }
+"krohnkite"              = { arch = "kwin-scripts-krohnkite-git" }
+"Bibata-Modern-Classic"  = { arch = "bibata-cursor-theme", fedora = "bibata-cursor-themes" }

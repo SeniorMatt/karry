@@ -1,0 +1,454 @@
+# Karry catalog: everything Karry knows how to back up, restore and sync.
+# Add an entry here to support a new file; no code change needed.
+#
+# id      optional entry id (defaults to the first path); path/paths: one path or a list.
+# system  (package entries) system dirs where the same kind of plugin lives; used to find the owning package.
+# note    free text shown in the UI.
+# path    root:relative path. Roots: config = $XDG_CONFIG_HOME (~/.config), home = $HOME,
+#         data = $XDG_DATA_HOME (~/.local/share), state = $XDG_STATE_HOME (~/.local/state).
+#         A trailing "/" means a directory (copied recursively). "*" globs are allowed in the last segment.
+# A path ending in "/" must be kind = "dir" (and the other way round, except for secret entries).
+# kind    kconfig (INI-style KConfig, merged key by key) | json | file (opaque) | dir
+# scope   shared  = backed up and synced between machines
+#         machine = backed up, restored only onto the SAME machine, never synced
+#         secret  = never read, never stored (listed so the UI can explain why)
+# apply   kwrite  = write changed keys with kwriteconfig6 while Plasma runs
+#         copy    = plain file copy (the file has no live owner)
+#         plasmashell = stop plasmashell, write, start it again (it rewrites this file on exit)
+#         logout  = staged; written on next login (owner rewrites it while running)
+#         package = plugin/theme dir: copy if user-installed, else record the system package
+# reload  actions run after applying (see [reload] table at the bottom)
+# machine_groups  KConfig groups (regex on the full "[A][B]" group path) that are machine-specific
+#         even though the file is shared; they are kept out of sync.
+# secret_keys     key-name regexes never stored (e.g. passwords that some apps keep in rc files)
+
+[[category]]
+id = "look"
+name = "Look & feel"
+icon = "preferences-desktop-theme-global"
+
+[[category]]
+id = "desktop"
+name = "Panels & widgets"
+icon = "preferences-desktop-plasma"
+
+[[category]]
+id = "windows"
+name = "Windows & KWin"
+icon = "preferences-system-windows"
+
+[[category]]
+id = "shortcuts"
+name = "Shortcuts"
+icon = "preferences-desktop-keyboard-shortcut"
+
+[[category]]
+id = "input"
+name = "Keyboard, mouse & touchpad"
+icon = "preferences-desktop-peripherals"
+
+[[category]]
+id = "system"
+name = "Power, notifications & locale"
+icon = "preferences-system"
+
+[[category]]
+id = "apps"
+name = "KDE apps"
+icon = "applications-all"
+
+[[category]]
+id = "plugins"
+name = "Plugins & themes"
+icon = "plugins"
+
+[[category]]
+id = "autostart"
+name = "Autostart"
+icon = "system-run"
+
+[[category]]
+id = "displays"
+name = "Displays"
+icon = "preferences-desktop-display"
+
+[[category]]
+id = "secrets"
+name = "Passwords & accounts"
+icon = "dialog-password"
+
+# ---------------------------------------------------------------- look & feel
+[[entry]]
+category = "look"
+path = "config:kdeglobals"
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["kglobalsettings"]
+machine_groups = ['^\[KScreen\]', '^\[KFileDialog Settings\]']
+
+[[entry]]
+category = "look"
+paths = ["config:plasmarc", "config:ksplashrc", "config:kscreenlockerrc", "config:breezerc",
+         "config:oxygenrc", "config:lightlyrc", "config:klassyrc", "config:kcmfonts", "config:Trolltech.conf"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["kglobalsettings"]
+
+[[entry]]
+category = "look"
+paths = ["config:gtkrc", "config:gtkrc-2.0", "config:gtk-3.0/settings.ini", "config:gtk-4.0/settings.ini",
+         "config:xsettingsd/xsettingsd.conf"]
+kind = "file"
+scope = "shared"
+apply = "copy"
+note = "GTK apps follow the KDE theme through these files."
+
+[[entry]]
+category = "look"
+paths = ["config:Kvantum/"]
+kind = "dir"
+scope = "shared"
+apply = "copy"
+
+[[entry]]
+category = "look"
+paths = ["data:wallpapers/", "data:plasma/wallpapers/"]
+kind = "dir"
+scope = "shared"
+apply = "copy"
+
+# ---------------------------------------------------------------- panels & widgets
+[[entry]]
+category = "desktop"
+path = "config:plasma-org.kde.plasma.desktop-appletsrc"
+kind = "kconfig"
+scope = "shared"
+apply = "plasmashell"
+note = "Panel layout. Screen numbers inside are remapped to the target's screens."
+machine_groups = ['^\[ScreenMapping\]']
+
+[[entry]]
+category = "desktop"
+paths = ["config:plasmashellrc", "config:krunnerrc", "config:kactivitymanagerdrc",
+         "config:kactivitymanagerd-statsrc", "config:kactivitymanagerd-pluginsrc"]
+kind = "kconfig"
+scope = "shared"
+apply = "plasmashell"
+machine_groups = ['^\[PlasmaViews\]\[Panel \d+\]\[Defaults\]', '^\[PlasmaTransientsConfig\]']
+
+# ---------------------------------------------------------------- windows & kwin
+[[entry]]
+category = "windows"
+path = "config:kwinrc"
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["kwin"]
+machine_groups = ['^\[Xwayland\]', '^\[Tiling\]\[[0-9a-f-]+\]', '^\[Compositing\]$']
+
+[[entry]]
+category = "windows"
+paths = ["config:kwinrulesrc", "config:kwinscriptsrc"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["kwin"]
+
+# ---------------------------------------------------------------- shortcuts
+[[entry]]
+category = "shortcuts"
+path = "config:kglobalshortcutsrc"
+kind = "kconfig"
+scope = "shared"
+apply = "logout"
+reload = ["kglobalaccel"]
+note = "Checked by the shortcut doctor before every restore and sync."
+
+[[entry]]
+category = "shortcuts"
+path = "config:khotkeysrc"
+kind = "file"
+scope = "shared"
+apply = "copy"
+note = "Plasma 5 custom shortcuts; Plasma 6 imports them once."
+
+[[entry]]
+category = "shortcuts"
+path = "data:khotkeys/"
+kind = "dir"
+scope = "shared"
+apply = "copy"
+
+# ---------------------------------------------------------------- input
+[[entry]]
+category = "input"
+paths = ["config:kxkbrc", "config:kcminputrc", "config:ktouchpadrc"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["kwin", "kcminit"]
+# Per-device sections (libinput vendor/product ids) belong to this machine's hardware.
+machine_groups = ['^\[Libinput\]\[\d+\]\[\d+\]', '^\[ButtonRebinds\]\[.*\]\[\d+\]', '^\[Tablet\]']
+
+# ---------------------------------------------------------------- system
+[[entry]]
+category = "system"
+paths = ["config:powerdevilrc", "config:powermanagementprofilesrc"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+reload = ["powerdevil"]
+note = "Synced: your battery/AC profiles. A desktop without a battery simply ignores the battery profile."
+
+[[entry]]
+category = "system"
+paths = ["config:plasmanotifyrc", "config:ktimezonedrc", "config:kded5rc", "config:kded6rc",
+         "config:ksmserverrc", "config:klaunchrc", "config:baloofilerc", "config:kuriikwsfilterrc",
+         "config:kiorc", "config:kservicemenurc", "config:systemsettingsrc", "config:kwalletrc",
+         "config:plasmaparc", "config:kaccessrc", "config:kmixrc", "config:bluedevilglobalrc"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+machine_groups = ['^\[LastSession', '^\[Session: ']
+
+[[entry]]
+category = "system"
+path = "config:plasma-localerc"
+kind = "kconfig"
+scope = "shared"
+apply = "logout"
+
+[[entry]]
+category = "system"
+paths = ["data:knotifications6/", "data:kservices6/searchproviders/", "data:kio/servicemenus/",
+         "data:dolphin/"]
+kind = "dir"
+scope = "shared"
+apply = "copy"
+
+# ---------------------------------------------------------------- KDE apps
+# Every *rc file in ~/.config that is not listed elsewhere and whose app is a KDE app is picked up by
+# the "apps" auto-rule in code (see [auto]). These are the well-known ones.
+[[entry]]
+category = "apps"
+paths = ["config:dolphinrc", "config:konsolerc", "config:katerc", "config:kwriterc", "config:okularrc",
+         "config:okularpartrc", "config:gwenviewrc", "config:arkrc", "config:kcalcrc", "config:spectaclerc",
+         "config:elisarc", "config:kdenliverc", "config:kritarc", "config:kclockrc", "config:kateschemarc",
+         "config:filelightrc", "config:partitionmanagerrc", "config:yakuakerc", "config:ktrashrc",
+         "config:kmail2rc", "config:korganizerrc", "config:akregatorrc", "config:kontactrc", "config:discoverrc",
+         "config:plasma-systemmonitorrc", "config:ksystemlogrc", "config:kdeconnect-app"]
+kind = "kconfig"
+scope = "shared"
+apply = "kwrite"
+machine_groups = ['^\[MainWindow\]', '.*\]\[.*Geometry.*\]', '^\[Recent Files\]', '^\[Recent URLs\]', '^\[History\]', '^\[KFileDialog Settings\]']
+secret_keys = ['(?i)pass(word)?$', '(?i)token', '(?i)secret']
+
+[[entry]]
+category = "apps"
+paths = ["data:konsole/", "data:kate/", "data:katepart5/", "data:org.kde.syntax-highlighting/",
+         "data:yakuake/", "data:okular/", "config:kate/", "data:kxmlgui5/"]
+kind = "dir"
+scope = "shared"
+apply = "copy"
+note = "Profiles, colour schemes, syntax files and menu/toolbar layouts."
+
+# ---------------------------------------------------------------- plugins & themes
+# apply=package: a directory of plugins. For each plugin id inside, Karry copies it if it lives in
+# the user's data dir (installed from the KDE Store / by hand). Plugins that the configs reference
+# but that come from system dirs are recorded with their owning package, and the target is told
+# what to install (see packages.toml).
+[[entry]]
+category = "plugins"
+id = "plasmoids"
+path = "data:plasma/plasmoids/"
+system = ["/usr/share/plasma/plasmoids/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+reload = ["plasmashell"]
+
+[[entry]]
+category = "plugins"
+id = "kwin-scripts"
+path = "data:kwin/scripts/"
+system = ["/usr/share/kwin/scripts/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+reload = ["kwin"]
+
+[[entry]]
+category = "plugins"
+id = "kwin-effects"
+path = "data:kwin/effects/"
+system = ["/usr/share/kwin/effects/", "/usr/lib/qt6/plugins/kwin/effects/plugins/", "/usr/lib64/qt6/plugins/kwin/effects/plugins/", "/usr/lib/x86_64-linux-gnu/qt6/plugins/kwin/effects/plugins/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+reload = ["kwin"]
+
+[[entry]]
+category = "plugins"
+id = "kwin-tabbox"
+paths = ["data:kwin/tabbox/", "data:kwin/decorations/"]
+system = ["/usr/share/kwin/tabbox/", "/usr/share/kwin/decorations/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+reload = ["kwin"]
+
+[[entry]]
+category = "plugins"
+id = "global-themes"
+path = "data:plasma/look-and-feel/"
+system = ["/usr/share/plasma/look-and-feel/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "plasma-themes"
+path = "data:plasma/desktoptheme/"
+system = ["/usr/share/plasma/desktoptheme/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "layout-templates"
+paths = ["data:plasma/layout-templates/", "data:plasma/shells/"]
+system = ["/usr/share/plasma/layout-templates/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "color-schemes"
+path = "data:color-schemes/"
+system = ["/usr/share/color-schemes/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "decorations"
+path = "data:aurorae/themes/"
+system = ["/usr/share/aurorae/themes/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "icons-cursors"
+paths = ["data:icons/", "home:.icons/"]
+system = ["/usr/share/icons/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+
+[[entry]]
+category = "plugins"
+id = "sddm-splash"
+path = "data:sddm/themes/"
+system = ["/usr/share/sddm/themes/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+note = "SDDM themes need root to install; Karry only tells you the package."
+
+[[entry]]
+category = "plugins"
+id = "fonts"
+paths = ["data:fonts/", "home:.fonts/"]
+system = ["/usr/share/fonts/"]
+kind = "dir"
+scope = "shared"
+apply = "package"
+reload = ["fc-cache"]
+
+[[entry]]
+category = "plugins"
+id = "krunner"
+path = "data:krunner/dbusplugins/"
+kind = "dir"
+scope = "shared"
+apply = "copy"
+
+# ---------------------------------------------------------------- autostart
+[[entry]]
+category = "autostart"
+paths = ["config:autostart/", "config:plasma-workspace/env/", "config:plasma-workspace/shutdown/"]
+kind = "dir"
+scope = "shared"
+apply = "copy"
+note = "Entries whose program is missing on the target are flagged, not copied blindly."
+
+# ---------------------------------------------------------------- displays (never synced)
+[[entry]]
+category = "displays"
+paths = ["config:kwinoutputconfig.json", "config:kgammarc", "config:kwinoutputconfig.json.bak"]
+kind = "file"
+scope = "machine"
+apply = "logout"
+note = "Monitor layout belongs to this machine's screens. Copying it to another machine breaks displays."
+
+[[entry]]
+category = "displays"
+paths = ["data:kscreen/", "config:kscreen/"]
+kind = "dir"
+scope = "machine"
+apply = "logout"
+
+[[entry]]
+category = "displays"
+path = "config:monitors.xml"
+kind = "file"
+scope = "machine"
+apply = "copy"
+
+[[entry]]
+category = "displays"
+paths = ["config:kded5/", "config:kded6/"]
+kind = "dir"
+scope = "machine"
+apply = "copy"
+
+# ---------------------------------------------------------------- secrets (never touched)
+[[entry]]
+category = "secrets"
+paths = ["data:kwalletd/", "config:libaccounts-glib/", "data:kaccounts/", "config:kdeconnect/",
+         "data:kdeconnect.app/", "config:kioslaverc", "data:keyrings/", "config:kdeconnect.app/",
+         "data:kwalletd6/", "config:kwalletd6/", "config:akonadi/", "data:akonadi/", "config:kmail2rc.secret"]
+kind = "file"
+scope = "secret"
+apply = "copy"
+note = "Wallets, online accounts, device pairing keys and mail stores are never copied."
+
+# Karry's own staged-login script (config:plasma-workspace/env/karry-pending.sh) is never backed up (hard-coded in scan).
+# Files whose name matches these are always treated as secret wherever they appear.
+[secret_patterns]
+names = ['(?i)\.(pem|key|p12|pfx|kwl|salt)$', '(?i)^id_(rsa|ed25519|ecdsa)', '(?i)credentials', '(?i)token']
+
+# Auto-rule: other KDE app rc files in ~/.config not listed above are picked up as "apps" if the
+# matching application is a KDE app (a .desktop file with X-KDE-* or Categories=...;KDE;...).
+[auto]
+apps_rc_glob = "config:*rc"
+ignore = ['^gtkrc', '^\.', 'mimeapps', 'user-dirs', 'pulse', 'session', 'kdedefaults']
+
+# ---------------------------------------------------------------- reload actions
+[reload]
+kglobalsettings = ["dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.notifyChange int32:0 int32:0",
+                   "dbus-send --session --type=signal /KGlobalSettings org.kde.KGlobalSettings.notifyChange int32:2 int32:0"]
+kwin = ["qdbus6 org.kde.KWin /KWin reconfigure"]
+kcminit = ["kcminit6 kcm_mouse kcm_touchpad kcm_keyboard"]
+powerdevil = ["qdbus6 org.kde.Solid.PowerManagement /org/kde/Solid/PowerManagement refreshStatus"]
+plasmashell = ["systemctl --user restart plasma-plasmashell.service"]
+kglobalaccel = []
+fc-cache = ["fc-cache -f"]
