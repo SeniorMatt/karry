@@ -7,10 +7,15 @@ import org.kde.karry
 
 Kirigami.Page {
     id: page
-    title: qsTr("Welcome to Karry")
+    title: step === 5 ? qsTr("Join your setup") : qsTr("Welcome to Karry")
     property int step: 0
     property string folder: ""
     property var off: ({})
+    property bool joinLoaded: false
+    // the join page loads the source machine itself; refresh() is ignored while another job runs, so retry when idle
+    function loadJoin() { if (step === 5 && !found && !joinLoaded && !Backend.busy) { joinLoaded = true; Backend.refresh() } }
+    onStepChanged: loadJoin()
+    Component.onCompleted: loadJoin()
     readonly property var found: applicationWindow().st ? applicationWindow().st.found : null
     readonly property var cats: {
         const c = applicationWindow().st ? applicationWindow().st.categories.slice() : []
@@ -26,6 +31,7 @@ Kirigami.Page {
     }
     Connections {
         target: Backend
+        function onBusyChanged() { page.loadJoin() }
         function onFinished(task, result) {
             if (Backend.error !== "") { if (task === "backup") page.step = 2; return }
             if (task === "init") page.step = 2
