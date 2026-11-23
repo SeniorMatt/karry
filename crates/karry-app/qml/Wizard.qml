@@ -11,6 +11,7 @@ Kirigami.Page {
     property int step: 0
     property string folder: ""
     property var off: ({})
+    readonly property var found: applicationWindow().st ? applicationWindow().st.found : null
     readonly property var cats: {
         const c = applicationWindow().st ? applicationWindow().st.categories.slice() : []
         if (!c.some(x => x.id === "secrets")) c.push({ id: "secrets", name: qsTr("Passwords"), icon: "password-copy", items: 0 })
@@ -46,7 +47,7 @@ Kirigami.Page {
             Layout.fillHeight: true
             // one container per step; only the current one is visible, fading in
             Repeater {
-                model: 5
+                model: 6
                 delegate: Item {
                     id: pane
                     required property int index
@@ -57,7 +58,7 @@ Kirigami.Page {
                     Loader {
                         anchors.fill: parent
                         active: pane.visible
-                        sourceComponent: [welcome, where, include, working, done][pane.index]
+                        sourceComponent: [welcome, where, include, working, done, join][pane.index]
                     }
                 }
             }
@@ -67,7 +68,9 @@ Kirigami.Page {
     Component {
         id: welcome
         Kirigami.PlaceholderMessage {
-            icon.name: "org.kde.karry"
+            icon.source: "qrc:/qt/qml/org/kde/karry/org.kde.karry.svg"
+            icon.width: Kirigami.Units.gridUnit * 8
+            icon.height: icon.width
             text: qsTr("Keep your Plasma setup safe and in sync")
             explanation: qsTr("Karry backs up your desktop settings and brings them to your other computers.")
             helpfulAction: Kirigami.Action { text: qsTr("Get started"); icon.name: "go-next"; onTriggered: page.step = 1 }
@@ -133,7 +136,13 @@ Kirigami.Page {
                     }
                 }
             }
-            QQC2.Button { text: qsTr("Back up now"); icon.name: "document-save"; Layout.alignment: Qt.AlignHCenter; highlighted: true; onClicked: { page.step = 3; Backend.backup(JSON.stringify(page.chosen())) } }
+            QQC2.Button {
+                Layout.alignment: Qt.AlignHCenter
+                highlighted: true
+                icon.name: page.found ? "go-next" : "document-save"
+                text: page.found ? qsTr("Continue") : qsTr("Back up now")
+                onClicked: { if (page.found) page.step = 5; else { page.step = 3; Backend.backup(JSON.stringify(page.chosen())) } }
+            }
         }
     }
     Component {
@@ -152,6 +161,15 @@ Kirigami.Page {
             text: qsTr("All set")
             explanation: qsTr("Your setup is backed up. Use Sync on your other computers to bring it over.")
             helpfulAction: Kirigami.Action { text: qsTr("Open Karry"); icon.name: "go-home"; onTriggered: { applicationWindow().firstRun = false; applicationWindow().showOverview() } }
+        }
+    }
+    Component {
+        id: join
+        Kirigami.PlaceholderMessage {
+            icon.name: "folder-sync"
+            text: page.found ? qsTr("Found the setup from %1").arg(page.found.hostname) : ""
+            explanation: page.found ? qsTr("%1, Plasma %2. Karry will show what changes on this computer before anything is applied.").arg(page.found.distro).arg(page.found.plasma || "?") : ""
+            helpfulAction: Kirigami.Action { text: qsTr("Review changes"); icon.name: "go-next"; enabled: !Backend.busy; onTriggered: Backend.previewSync() }
         }
     }
 }

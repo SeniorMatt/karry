@@ -177,8 +177,21 @@ pub fn diagnose(text: &str, inst: &Installed) -> Result<Vec<ShortcutIssue>> {
     Ok(issues)
 }
 
+/// The shortcuts this machine will have: a change staged for next login wins over the live file.
+pub fn current_text(ctx: &Ctx) -> Option<String> {
+    let staged = crate::store::pending_dir(ctx).join("files/config/kglobalshortcutsrc");
+    std::fs::read_to_string(staged).or_else(|_| std::fs::read_to_string(ctx.roots.config.join("kglobalshortcutsrc"))).ok()
+}
+
 pub fn diagnose_system(ctx: &Ctx) -> Vec<ShortcutIssue> {
-    std::fs::read_to_string(ctx.roots.config.join("kglobalshortcutsrc")).ok().and_then(|t| diagnose(&t, &Installed::scan(ctx)).ok()).unwrap_or_default()
+    current_text(ctx).and_then(|t| diagnose(&t, &Installed::scan(ctx)).ok()).unwrap_or_default()
+}
+
+/// Fix one issue through the normal snapshot + apply path (staged for next login while Plasma runs).
+pub fn fix_system(ctx: &Ctx, issue: &str, fix: &str, input: Option<&str>) -> Result<crate::apply::ApplyReport> {
+    let f = diagnose_system(ctx).into_iter().find(|i| i.id == issue).and_then(|i| i.fixes.into_iter().find(|f| f.id == fix)).ok_or_else(|| crate::Error::Msg("this problem is already gone".into()))?;
+    let text = current_text(ctx).unwrap_or_default();
+    crate::apply::apply_file(ctx, "config/kglobalshortcutsrc", apply_fix(&text, &f, input)?.into_bytes(), &format!("fix: {}", f.label))
 }
 
 /// Returns the kglobalshortcutsrc text with the fix applied. `input` = new keys for Rebind ops.

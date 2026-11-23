@@ -23,6 +23,9 @@ pub mod qobject {
         fn finished(self: Pin<&mut Backend>, task: &QString, result: &QString);
 
         #[qinvokable]
+        #[cxx_name = "debugPage"]
+        fn debug_page(self: &Backend) -> QString;
+        #[qinvokable]
         fn refresh(self: Pin<&mut Backend>);
         #[qinvokable]
         #[cxx_name = "initFolder"]
@@ -57,7 +60,7 @@ use core::pin::Pin;
 use cxx_qt::Threading;
 use cxx_qt_lib::QString;
 use karry_core::apply::{self, Plan};
-use karry_core::store::{self, Store};
+use karry_core::store::{self, Part, Store};
 use karry_core::sync::{self, SyncOptions};
 use karry_core::{scan, shortcuts, Ctx, Error, Roots};
 use serde_json::{json, Value};
@@ -101,6 +104,17 @@ fn refreshed(ctx: &Ctx, extra: Value) -> Result<Out, Error> {
     let store = config.as_ref().and_then(|c| Store::open(&c.path).ok());
     let mut status = serde_json::to_value(scan::status(ctx, store.as_ref())?).unwrap_or_default();
     status["config"] = json!(config);
+    let me = status["machine"].clone();
+    let host = me["hostname"].as_str().unwrap_or_default();
+    let pretty = ctx.run("hostnamectl --pretty").map(|o| o.stdout.trim().to_string()).filter(|s| !s.is_empty());
+    let hashy = host.len() >= 12 && host.chars().all(|c| c.is_ascii_hexdigit()) || host == "unknown";
+    status["machine"]["hostname"] = json!(pretty.unwrap_or_else(|| if hashy { "This computer".into() } else { host.into() }));
+    if let Some(m) = store.as_ref().and_then(|s| s.manifest(&Part::Shared).ok().flatten()) {
+        status["synced"] = json!(m.last_sync.clone().unwrap_or(m.created.clone()));
+        if m.machine.id != me["id"].as_str().unwrap_or_default() {
+            status["found"] = json!(m.machine);
+        }
+    }
     let ups = vec![
         ("configured", (config.is_some() as u8).to_string()),
         ("status", js(status)),
@@ -156,6 +170,9 @@ impl qobject::Backend {
         });
     }
 
+    pub fn debug_page(&self) -> QString {
+        QString::from(&std::env::var("KARRY_PAGE").unwrap_or_default())
+    }
     pub fn refresh(self: Pin<&mut Self>) {
         self.job("refresh", |c| refreshed(c, json!({})));
     }
@@ -176,7 +193,7 @@ impl qobject::Backend {
     pub fn backup(self: Pin<&mut Self>, only: &QString) {
         let only = only_list(&only.to_string());
         self.job("backup", move |c| {
-            let r = store::backup(c, &Store::create(&cfg(c)?.path)?, only.as_deref())?;
+            let r = store::backup(c, &Store::create(&cfg(c)?.path)?, only.as_deref(), false)?;
             refreshed(c, json!(r))
         });
     }
@@ -209,17 +226,11 @@ impl qobject::Backend {
             refreshed(c, json!({ "logout": r.plan.needs_logout, "pushed": r.pushed, "published": r.published.len() }))
         });
     }
-    /// The fix is written straight to kglobalshortcutsrc, after a snapshot so Undo works.
     pub fn fix(self: Pin<&mut Self>, issue: &QString, fix: &QString, input: &QString) {
         let (issue, fix, input) = (issue.to_string(), fix.to_string(), input.to_string());
         self.job("fix", move |c| {
-            let f = shortcuts::diagnose_system(c).into_iter().find(|i| i.id == issue).and_then(|i| i.fixes.into_iter().find(|f| f.id == fix)).ok_or_else(|| Error::Msg("this problem is already gone".into()))?;
-            let path = c.roots.config.join("kglobalshortcutsrc");
-            let text = std::fs::read_to_string(&path).map_err(|e| Error::Msg(e.to_string()))?;
-            let new = shortcuts::apply_fix(&text, &f, Some(input.as_str()).filter(|s| !s.is_empty()))?;
-            store::snapshot_create(c, &format!("fix: {}", f.label), &[path.clone()])?;
-            karry_core::atomic_write(&path, new.as_bytes(), None)?;
-            refreshed(c, json!({ "logout": true }))
+            let r = shortcuts::fix_system(c, &issue, &fix, Some(input.as_str()).filter(|s| !s.is_empty()))?;
+            refreshed(c, json!({ "logout": r.plan.needs_logout }))
         });
     }
     pub fn undo(self: Pin<&mut Self>, id: &QString) {

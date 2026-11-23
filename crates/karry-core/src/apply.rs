@@ -235,3 +235,10 @@ pub fn execute(ctx: &Ctx, plan: &Plan, inc: &Incoming) -> Result<Vec<String>> {
     }
     Ok(warns)
 }
+
+/// Put one catalogued file onto this machine through the normal snapshot + strategy path.
+pub fn apply_file(ctx: &Ctx, store_path: &str, data: Vec<u8>, label: &str) -> Result<ApplyReport> {
+    let e = ctx.catalog.find(store_path).ok_or_else(|| crate::Error::Msg(format!("{store_path} is not in the catalog")))?;
+    let d = crate::store::Desired { store_path: store_path.into(), category: e.category.clone(), scope: e.scope, kind: if e.kind == Kind::Dir { Kind::File } else { e.kind }, apply: e.apply, reload: e.reload.clone(), content: crate::store::Content::Bytes(data) };
+    apply(ctx, &Incoming { files: vec![d], ..Default::default() }, label, true, false)
+}

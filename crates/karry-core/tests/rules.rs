@@ -61,7 +61,7 @@ fn secrets_never_read_or_stored() {
     let (a, out) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let w = source(a.path());
     let s = Store::create(out.path()).unwrap();
-    store::backup(&w.ctx, &s, None).unwrap();
+    store::backup(&w.ctx, &s, None, false).unwrap();
     let text = all_store_text(out.path());
     for bad in ["hunter2", "abc123", "SECRETWALLET", "SECRETTOKEN", "kdewallet", "token.txt"] {
         assert!(!text.contains(bad), "{bad} leaked");
@@ -75,7 +75,7 @@ fn machine_files_stay_in_machine_dir_and_restore_only_there() {
     let (a, out, b, c) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let w = source(a.path());
     let s = Store::create(out.path()).unwrap();
-    store::backup(&w.ctx, &s, None).unwrap();
+    store::backup(&w.ctx, &s, None, false).unwrap();
     let shared: String = tree(&out.path().join("shared")).into_iter().map(|(p, b)| format!("{p}\n{}", String::from_utf8_lossy(&b))).collect();
     assert!(!shared.contains("kwinoutputconfig") && !shared.contains("[KScreen]") && !shared.contains("ScreenScaleFactors") && !shared.contains("[Compositing]"));
     let id = karry_core::plugins::MachineInfo::detect(&w.ctx).id;
@@ -101,7 +101,7 @@ fn machine_files_stay_in_machine_dir_and_restore_only_there() {
 fn snapshot_then_undo_is_byte_identical() {
     let (a, out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let s = Store::create(out.path()).unwrap();
-    store::backup(&source(a.path()).ctx, &s, None).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
     let t = World::new(b.path(), "bbbb", false);
     t.put("kdeglobals", "# mine\n[General]\nColorScheme=Other\nExtra=1\n[KScreen]\nx=y\n");
     put(&t.cfg("gtk-3.0/settings.ini"), &[0u8, 255, 1, 2, 13, 10]);
@@ -124,7 +124,7 @@ fn snapshot_then_undo_is_byte_identical() {
 fn undo_while_plasma_runs_uses_safe_strategies() {
     let (a, out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let s = Store::create(out.path()).unwrap();
-    store::backup(&source(a.path()).ctx, &s, None).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
     let t = World::new(b.path(), "bbbb", false);
     t.put("kwinrc", "[Windows]\nBorderSnapZone=5\n");
     let id = apply::apply(&t.ctx, &store::load(&t.ctx, &s, None).unwrap(), "restore", false, false).unwrap().snapshot.unwrap().id;
@@ -167,7 +167,7 @@ fn malicious_backup_is_rejected_before_any_write() {
 fn strategies_run_the_right_commands() {
     let (a, out, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
     let s = Store::create(out.path()).unwrap();
-    store::backup(&source(a.path()).ctx, &s, None).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
     // Plasma running
     let t = World::new(b.path(), "bbbb", true);
     t.put("kdeglobals", "[General]\nColorScheme=Old\n");
@@ -209,7 +209,7 @@ fn plasmashell_strategy_stops_writes_starts_and_packages_hint() {
     put(&src.ctx.roots.sys.join("usr/share/plasma/plasmoids/org.kde.plasma.weather/metadata.json"), br#"{"KPlugin":{"Id":"org.kde.plasma.weather"}}"#);
     src.rec.respond("pacman -Qoq", 0, "kdeplasma-addons\n");
     let s = Store::create(out.path()).unwrap();
-    store::backup(&src.ctx, &s, None).unwrap();
+    store::backup(&src.ctx, &s, None, false).unwrap();
     let m = s.manifest(&Part::Shared).unwrap().unwrap();
     assert!(m.plugins.iter().any(|p| p.id == "org.kde.plasma.weather" && p.package.as_deref() == Some("kdeplasma-addons")));
     let t = World::new(b.path(), "bbbb", true);
@@ -344,4 +344,38 @@ fn catalog_and_packages_load() {
     let c = karry_core::catalog::Catalog::embedded().unwrap();
     assert!(c.find("config/kwinrc").is_some() && c.find("config/somethingrc").is_some() && c.find("home/.bashrc").is_none());
     assert!(karry_core::plugins::Packages::embedded().unwrap().family_of("cachyos", &["arch".into()]).as_deref() == Some("arch"));
+}
+
+#[test]
+fn backup_refuses_another_machines_store_unless_forced() {
+    let (a, b, out) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let s = Store::create(out.path()).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
+    let other = World::new(b.path(), "bbbb-other-machine", false);
+    other.put("kdeglobals", "[General]\nColorScheme=Other\n");
+    let e = store::backup(&other.ctx, &s, None, false).unwrap_err().to_string();
+    assert!(e.contains("sync"), "{e}");
+    assert!(all_store_text(out.path()).contains("BreezeDark"));
+    store::backup(&other.ctx, &s, None, true).unwrap();
+}
+
+#[test]
+fn shortcut_fixes_stack_in_the_staged_file_while_plasma_runs() {
+    let a = tempfile::tempdir().unwrap();
+    let w = World::new(a.path(), "cccc", true);
+    let live = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/kglobalshortcutsrc")).unwrap();
+    w.put("kglobalshortcutsrc", &live);
+    for d in ["org.kde.dolphin.desktop", "org.kde.konsole.desktop", "org.kde.krunner.desktop", "firefox.desktop"] {
+        put(&w.ctx.roots.sys.join("usr/share/applications").join(d), b"[Desktop Entry]\n");
+    }
+    let n = shortcuts::diagnose_system(&w.ctx).len();
+    assert!(n >= 2, "fixture needs two issues");
+    for _ in 0..2 {
+        let i = &shortcuts::diagnose_system(&w.ctx)[0];
+        shortcuts::fix_system(&w.ctx, &i.id, &i.fixes[0].id, Some("Meta+F9")).unwrap();
+    }
+    assert_eq!(w.read("kglobalshortcutsrc"), live, "live file must stay untouched");
+    let staged = std::fs::read_to_string(store::pending_dir(&w.ctx).join("files/config/kglobalshortcutsrc")).unwrap();
+    assert!(shortcuts::diagnose(&staged, &Installed::scan(&w.ctx)).unwrap().len() <= n - 2);
 }

@@ -9,7 +9,8 @@ Kirigami.ApplicationWindow {
     width: Kirigami.Units.gridUnit * 50
     height: Kirigami.Units.gridUnit * 38
 
-    property bool firstRun: false
+    property bool firstRun: true
+    property string dbg: Backend.debugPage()
     property bool logout: false
     readonly property var st: Backend.status ? JSON.parse(Backend.status) : null
 
@@ -26,21 +27,23 @@ Kirigami.ApplicationWindow {
     TextEdit { id: clip; visible: false }
 
     Component.onCompleted: {
-        firstRun = !Backend.configured
+        const steps = { welcome: 0, folder: 1, include: 2, join: 5 }
+        firstRun = dbg in steps || (dbg === "" && !Backend.configured)
         Backend.refresh()
-        pageStack.push(firstRun ? wizard : overview)
+        if (firstRun) pageStack.push(wizard, { step: steps[dbg] ?? 0 })
+        else pageStack.push(overview)
+        if (dbg === "shortcuts") go(shortcutsPage)
+        if (dbg === "snapshots") go(snapshotsPage)
     }
 
     globalDrawer: Kirigami.GlobalDrawer {
-        drawerOpen: !root.firstRun
-        enabled: !root.firstRun
-        opacity: root.firstRun ? 0 : 1
+        visible: !root.firstRun
         isMenu: false
         collapsible: true
         collapseButtonVisible: false
         modal: false
         title: "Karry"
-        titleIcon: "org.kde.karry"
+        titleIcon: "qrc:/qt/qml/org/kde/karry/org.kde.karry.svg"
         actions: [
             Kirigami.Action { text: qsTr("Overview"); icon.name: "go-home"; onTriggered: root.go(overview) },
             Kirigami.Action { text: qsTr("Shortcuts"); icon.name: "preferences-desktop-keyboard-shortcut"; onTriggered: root.go(shortcutsPage) },
@@ -63,6 +66,7 @@ Kirigami.ApplicationWindow {
                 pageStack.push(previewPage)
                 return
             }
+            if (task === "refresh" && dbg === "preview") { dbg = ""; Backend.previewSync() }
             if (task === "refresh" || task === "init") return
             if (task === "backup") showPassiveNotification(qsTr("Backed up %1 shared and %2 machine files").arg(r.shared).arg(r.machine))
             else if (task === "sync") showPassiveNotification(r.pushed ? qsTr("Synced and pushed") : qsTr("Synced"))
@@ -70,7 +74,8 @@ Kirigami.ApplicationWindow {
             else if (task === "fix") showPassiveNotification(qsTr("Fixed. A snapshot was taken first."))
             if (r.logout) root.logout = true
             if (task === "sync" || task === "restore") {
-                if (pageStack.depth > 1) pageStack.pop()
+                if (firstRun) { firstRun = false; pageStack.clear(); pageStack.push(overview) }
+                else if (pageStack.depth > 1) pageStack.pop()
             }
         }
     }

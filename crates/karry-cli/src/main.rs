@@ -6,7 +6,7 @@ use std::path::Path;
 
 const USAGE: &str = "usage: karry-cli [--json] <command>
   status | doctor | snapshots | undo [id]
-  backup <dir> | restore <dir> [--dry-run] [--only cat,..]
+  backup <dir> [--force] | restore <dir> [--dry-run] [--only cat,..]
   sync [--dry-run] | init --folder <dir> | --git <url>";
 
 type R = Result<(), Box<dyn std::error::Error>>;
@@ -80,7 +80,7 @@ fn run() -> R {
         }
         "backup" => {
             let dir = args.get(1).ok_or(USAGE)?;
-            let r = store::backup(&ctx, &Store::create(Path::new(dir))?, None)?;
+            let r = store::backup(&ctx, &Store::create(Path::new(dir))?, None, args.iter().any(|a| a == "--force"))?;
             show(json, &r, || format!("backed up {} shared and {} machine files, {} plugin records; {} secret/unsafe items skipped", r.shared, r.machine, r.plugins, r.skipped.len()));
         }
         "restore" => {

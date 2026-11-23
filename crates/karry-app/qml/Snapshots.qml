@@ -39,6 +39,7 @@ Kirigami.ScrollablePage {
                     QQC2.Label { opacity: 0.7; text: modelData.created + " · " + (modelData.files.length === 1 ? qsTr("%1 file") : qsTr("%1 files")).arg(modelData.files.length) }
                 }
                 QQC2.Button {
+                    flat: true
                     icon.name: "edit-undo"
                     text: qsTr("Undo")
                     enabled: !Backend.busy

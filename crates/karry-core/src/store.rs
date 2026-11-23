@@ -90,9 +90,13 @@ pub struct BackupReport {
 }
 
 /// Replace this machine's backup in `store` (shared/ and machines/<id>/) with the current state.
-pub fn backup(ctx: &Ctx, store: &Store, only: Option<&[String]>) -> Result<BackupReport> {
+/// Refuses to replace another machine's shared data (use sync instead) unless `force`.
+pub fn backup(ctx: &Ctx, store: &Store, only: Option<&[String]>, force: bool) -> Result<BackupReport> {
     let inv = scan::scan(ctx)?;
     let me = MachineInfo::detect(ctx);
+    if let Some(m) = store.manifest(&Part::Shared)?.filter(|m| m.machine.id != me.id && !force) {
+        return err(format!("this setup belongs to {}; back up would overwrite it. Use sync to join it", m.machine.hostname));
+    }
     let mid = Part::Machine(me.id.clone());
     for p in [&Part::Shared, &mid] {
         let d = store.dir(p)?.join("files");
