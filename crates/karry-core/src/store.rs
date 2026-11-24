@@ -405,3 +405,34 @@ pub fn undo(ctx: &Ctx, id: Option<&str>) -> Result<Snapshot> {
     }
     Ok(s)
 }
+
+// ---- single-file export / import (.karry = gzip-compressed tar of the store)
+pub fn export(store: &Store, path: &Path) -> Result<()> {
+    let f = io(std::fs::File::create(path), path)?;
+    let mut t = tar::Builder::new(flate2::write::GzEncoder::new(f, flate2::Compression::default()));
+    for e in walkdir::WalkDir::new(&store.root).min_depth(1).into_iter().filter_entry(|e| e.file_name() != ".git").flatten() {
+        let rel = e.path().strip_prefix(&store.root).unwrap();
+        if e.file_type().is_dir() { io(t.append_dir(rel, e.path()), e.path())? } else if e.file_type().is_file() { io(t.append_path_with_name(e.path(), rel), e.path())? }
+    }
+    io(t.into_inner().and_then(|g| g.finish()).map(|_| ()), path)
+}
+
+/// Unpack a `.karry` file into a fresh temp dir and open it as a Store. Rejects links and paths that leave the dir.
+pub fn import(path: &Path) -> Result<Store> {
+    use std::path::Component;
+    let dest = std::env::temp_dir().join(format!("karry-import-{}-{}", std::process::id(), now_stamp().0));
+    let _ = std::fs::remove_dir_all(&dest);
+    io(std::fs::create_dir_all(&dest), &dest)?;
+    let mut ar = tar::Archive::new(flate2::read::GzDecoder::new(io(std::fs::File::open(path), path)?));
+    for e in io(ar.entries(), path)? {
+        let mut e = io(e, path)?;
+        let p = io(e.path().map(|p| p.into_owned()), path)?;
+        let plain = e.header().entry_type().is_file() || e.header().entry_type().is_dir();
+        if !plain || !p.components().all(|c| matches!(c, Component::Normal(_))) {
+            let _ = std::fs::remove_dir_all(&dest);
+            return err(format!("{}: unsafe entry {}", path.display(), p.display()));
+        }
+        io(e.unpack_in(&dest).map(|_| ()), &dest)?;
+    }
+    Store::open(&dest)
+}

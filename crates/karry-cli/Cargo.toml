@@ -13,3 +13,6 @@ karry-core = { path = "../karry-core" }
 serde_json = "1"
 serde = "1"
 
+
+[dev-dependencies]
+tempfile = "3"

@@ -15,6 +15,7 @@ pub mod scan;
 pub mod shortcuts;
 pub mod store;
 pub mod sync;
+pub mod uninstall;
 
 use catalog::Catalog;
 use plugins::Packages;
@@ -136,6 +137,9 @@ impl Roots {
     }
     pub fn karry_state(&self) -> PathBuf {
         self.state.join("karry")
+    }
+    pub fn state_karry(&self, name: &str) -> PathBuf {
+        self.karry_state().join(name)
     }
 }
 

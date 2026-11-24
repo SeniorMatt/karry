@@ -6,8 +6,9 @@ use std::path::Path;
 
 const USAGE: &str = "usage: karry-cli [--json] <command>
   status | doctor | snapshots | undo [id]
-  backup <dir> [--force] | restore <dir> [--dry-run] [--only cat,..]
-  sync [--dry-run] | init --folder <dir> | --git <url>";
+  backup <dir> [--force] | export <file.karry> | restore <dir|file.karry> [--dry-run] [--only cat,..]
+  sync [--dry-run] | init --folder <dir> | --git <url>
+  uninstall [--keep-snapshots] [--yes]";
 
 type R = Result<(), Box<dyn std::error::Error>>;
 
@@ -79,14 +80,25 @@ fn run() -> R {
             show(json, &s, || format!("restored snapshot {} ({} files)", s.id, s.files.len()));
         }
         "backup" => {
-            let dir = args.get(1).ok_or(USAGE)?;
-            let r = store::backup(&ctx, &Store::create(Path::new(dir))?, None, args.iter().any(|a| a == "--force"))?;
+            let dir = args.get(1).filter(|a| !a.starts_with("--")).map(|d| Path::new(d).to_path_buf());
+            let only: Option<Vec<String>> = opt(&args, "--only").map(|s| s.split(',').map(String::from).collect());
+            let r = store::backup(&ctx, &Store::create(&match dir { Some(d) => d, None => config()?.path })?, only.as_deref(), args.iter().any(|a| a == "--force"))?;
             show(json, &r, || format!("backed up {} shared and {} machine files, {} plugin records; {} secret/unsafe items skipped", r.shared, r.machine, r.plugins, r.skipped.len()));
         }
+        "export" => {
+            let (f, c) = (args.get(1).ok_or(USAGE)?, config()?);
+            store::export(&Store::open(&c.path)?, Path::new(f))?;
+            show(json, &serde_json::json!({ "file": f }), || format!("saved {f}"));
+        }
         "restore" => {
-            let dir = args.get(1).ok_or(USAGE)?;
+            let dir = args.get(1).filter(|a| !a.starts_with("--"));
             let only: Option<Vec<String>> = opt(&args, "--only").map(|s| s.split(',').map(String::from).collect());
-            let inc = store::load(&ctx, &Store::open(Path::new(dir))?, only.as_deref())?;
+            let st = match dir {
+                Some(d) if d.ends_with(".karry") => store::import(Path::new(d))?,
+                Some(d) => Store::open(Path::new(d))?,
+                None => Store::open(&config()?.path)?,
+            };
+            let inc = store::load(&ctx, &st, only.as_deref())?;
             let r = apply::apply(&ctx, &inc, "restore", false, dry)?;
             show(json, &r, || {
                 let mut t = plan_text(&r.plan);
@@ -101,7 +113,7 @@ fn run() -> R {
         }
         "sync" => {
             let cfg = config()?;
-            let r = sync::sync(&ctx, &Store::create(&cfg.path)?, sync::backend(&cfg).as_ref(), &SyncOptions { dry_run: dry, ..Default::default() })?;
+            let r = sync::sync(&ctx, &Store::create(&cfg.path)?, sync::backend(&cfg).as_ref(), &SyncOptions { dry_run: dry, remote_wins: opt(&args, "--remote-wins").map(|j| serde_json::from_str(&j)).transpose()?.unwrap_or_default(), ..Default::default() })?;
             show(json, &r, || {
                 let mut t: String = r.incoming.iter().map(|i| format!("{}\n", i.summary)).collect();
                 t += &plan_text(&r.plan);
@@ -113,8 +125,29 @@ fn run() -> R {
             });
         }
         "init" => {
-            let c = if let Some(d) = opt(&args, "--folder") { sync::init_folder(&ctx, Path::new(&d))? } else if let Some(u) = opt(&args, "--git") { sync::init_git(&ctx, &u)? } else { return Err(USAGE.into()) };
+            let c = if args.iter().any(|a| a == "--local") { sync::init_folder(&ctx, &ctx.roots.home.join("Karry"))? } else if let Some(d) = opt(&args, "--folder") { sync::init_folder(&ctx, Path::new(&d))? } else if let Some(u) = opt(&args, "--git") { sync::init_git(&ctx, &u)? } else { return Err(USAGE.into()) };
             show(json, &c, || format!("saved {}", sync::config_path(&ctx).display()));
+        }
+        "info" => {
+            let cfg = sync::load_config(&ctx)?;
+            let source = cfg.as_ref().and_then(|c| Store::open(&c.path).ok()).and_then(|s| s.manifest(&store::Part::Shared).ok().flatten()).map(|m| m.machine).filter(|m| m.id != karry_core::plugins::MachineInfo::detect(&ctx).id);
+            let v = serde_json::json!({ "machine": karry_core::plugins::MachineInfo::detect(&ctx), "config": cfg, "local_only": cfg.as_ref().is_some_and(|c| c.kind == "folder" && c.path == ctx.roots.home.join("Karry")), "source": source });
+            show(json, &v, || format!("{}\n", v));
+        }
+        "fix" => {
+            let (i, f) = (args.get(1).ok_or(USAGE)?, args.get(2).ok_or(USAGE)?);
+            let r = shortcuts::fix_system(&ctx, i, f, args.get(3).map(|s| s.as_str()))?;
+            show(json, &r, || format!("fixed; log out to finish: {}\n", r.plan.needs_logout));
+        }
+        "uninstall" => {
+            let keep = args.iter().any(|a| a == "--keep-snapshots");
+            let t = if args.iter().any(|a| a == "--yes") { karry_core::uninstall::uninstall(&ctx, keep)? } else { karry_core::uninstall::targets(&ctx, keep) };
+            show(json, &t, || {
+                let done = args.iter().any(|a| a == "--yes");
+                let mut s: String = t.iter().map(|p| format!("{} {}\n", if done { "removed" } else { "would remove" }, p.display())).collect();
+                s += if done { "Your KDE settings and the sync folder were not touched.\n" } else { "Nothing removed. Run again with --yes. Your KDE settings and the sync folder are never touched.\n" };
+                s
+            });
         }
         _ => println!("{USAGE}"),
     }
@@ -123,7 +156,11 @@ fn run() -> R {
 
 fn main() {
     if let Err(e) = run() {
-        eprintln!("karry-cli: {e}");
+        if std::env::args().any(|a| a == "--json") {
+            println!("{}", serde_json::json!({ "error": e.to_string() }));
+        } else {
+            eprintln!("karry-cli: {e}");
+        }
         std::process::exit(1);
     }
 }

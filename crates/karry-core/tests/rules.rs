@@ -431,3 +431,52 @@ fn git_commit_falls_back_to_a_default_identity() {
     sync::GitBackend { root: w.ctx.roots.config.join("repo") }.push(&w.ctx, "m").unwrap();
     assert!(w.rec.calls().iter().any(|c| c.line().contains("user.name=Karry") && c.line().contains("commit")));
 }
+
+#[test]
+fn uninstall_removes_only_karrys_own_files() {
+    let (a, out) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let w = source(a.path());
+    let s = Store::create(out.path()).unwrap();
+    store::backup(&w.ctx, &s, None, false).unwrap();
+    let r = &w.ctx.roots;
+    sync::init_folder(&w.ctx, out.path()).unwrap();
+    for p in [r.config.join(karry_core::scan::PENDING_SCRIPT), r.state.join("karry/snapshots/x/m.json"), r.state.join("karry/base/b"), r.state.join("karry/repo/keep"), r.data.join("applications/org.kde.karry.desktop"), r.data.join("applications/other.desktop")] {
+        put(&p, b"x");
+    }
+    let (kde, store_before) = (tree(&r.config), tree(out.path()));
+    let kde_keep: Vec<_> = kde.iter().filter(|(p, _)| !p.starts_with("karry/") && !p.contains("karry-pending")).cloned().collect();
+    karry_core::uninstall::uninstall(&w.ctx, true).unwrap();
+    assert!(!r.config.join("karry").exists() && !r.state.join("karry/base").exists() && !r.data.join("applications/org.kde.karry.desktop").exists());
+    assert!(r.state.join("karry/snapshots/x/m.json").exists() && r.state.join("karry/repo/keep").exists() && r.data.join("applications/other.desktop").exists());
+    assert_eq!(tree(&r.config), kde_keep);
+    assert_eq!(tree(out.path()), store_before);
+    karry_core::uninstall::uninstall(&w.ctx, false).unwrap();
+    assert!(!r.state.join("karry/snapshots").exists());
+}
+
+#[test]
+fn export_import_roundtrip_and_malicious_archives_rejected() {
+    let (a, out, b, tmp) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let s = Store::create(out.path()).unwrap();
+    store::backup(&source(a.path()).ctx, &s, None, false).unwrap();
+    let file = tmp.path().join("setup.karry");
+    store::export(&s, &file).unwrap();
+    let t = World::new(b.path(), "bbbb", false);
+    let inc = store::load(&t.ctx, &store::import(&file).unwrap(), None).unwrap();
+    apply::apply(&t.ctx, &inc, "restore", false, false).unwrap();
+    assert!(t.read("kwinrc").contains("BorderSnapZone=10"));
+    assert!(!all_store_text(&store::import(&file).unwrap().root).contains("hunter2"));
+    for (name, kind) in [("../evil", tar::EntryType::Regular), ("/abs", tar::EntryType::Regular), ("link", tar::EntryType::Symlink)] {
+        let bad = tmp.path().join("bad.karry");
+        let mut tb = tar::Builder::new(flate2::write::GzEncoder::new(std::fs::File::create(&bad).unwrap(), flate2::Compression::default()));
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(kind);
+        h.set_size(0);
+        h.as_gnu_mut().unwrap().name[..name.len()].copy_from_slice(name.as_bytes());
+        if kind == tar::EntryType::Symlink { h.set_link_name("/etc").unwrap(); }
+        h.set_cksum();
+        tb.append(&h, std::io::empty()).unwrap();
+        tb.into_inner().unwrap().finish().unwrap();
+        assert!(store::import(&bad).is_err(), "{name}");
+    }
+}
