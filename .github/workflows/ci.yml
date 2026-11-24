@@ -11,15 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
-      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake qt6-base qt6-declarative kirigami kconfig qt6-svg qqc2-desktop-style
+      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake ninja qt6-base ki18n kcoreaddons kwidgetsaddons
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - run: cargo test --workspace --exclude karry-app
-      - run: cargo build --release --workspace
+      - run: cargo test --workspace
+      - run: cargo build --release -p karry-cli
+      - run: cmake -B build -G Ninja && cmake --build build
       - uses: actions/upload-artifact@v4
         with:
           name: karry
           path: |
-            target/release/karry
+            build/app/karry
             target/release/karry-cli

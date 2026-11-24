@@ -19,10 +19,11 @@ Arch / CachyOS:
 cd packaging/arch && makepkg -si
 ```
 
-From source (needs Rust, Qt 6 and Kirigami):
+From source (needs Rust, CMake, Qt 6 and KDE Frameworks 6):
 
 ```sh
-cargo build --release
+cargo build --release -p karry-cli
+cmake -B build -G Ninja && cmake --build build
 ```
 
 ## Usage

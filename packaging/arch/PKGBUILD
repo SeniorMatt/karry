@@ -5,10 +5,9 @@ pkgdesc="Back up, restore and sync your KDE Plasma setup"
 arch=(x86_64 aarch64)
 url="https://github.com/SeniorMatt/karry"
 license=(GPL-3.0-or-later)
-depends=(qt6-base qt6-declarative qt6-svg kirigami qqc2-desktop-style kconfig)
-makedepends=(git cargo cmake)
+depends=(qt6-base ki18n kcoreaddons kwidgetsaddons)
+makedepends=(git cargo cmake ninja)
 optdepends=('git: sync through a git remote')
-options=(!lto)
 provides=(karry)
 conflicts=(karry)
 source=("git+$url.git")
@@ -21,7 +20,9 @@ pkgver() {
 
 build() {
   cd karry
-  cargo build --release --locked
+  cargo build --release --locked -p karry-cli
+  cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=None -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
 }
 
 check() {
@@ -31,7 +32,6 @@ check() {
 
 package() {
   cd karry
-  install -Dm755 target/release/karry target/release/karry-cli -t "$pkgdir/usr/bin/"
-  install -Dm644 crates/karry-app/org.kde.karry.desktop -t "$pkgdir/usr/share/applications/"
-  install -Dm644 crates/karry-app/org.kde.karry.svg -t "$pkgdir/usr/share/icons/hicolor/scalable/apps/"
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm755 target/release/karry-cli -t "$pkgdir/usr/bin/"
 }
