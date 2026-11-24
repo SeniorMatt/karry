@@ -20,7 +20,8 @@ for d in platforms wayland-shell-integration wayland-decoration-client wayland-g
   [ -d $Q/$d ] && cp -r $Q/$d $A/usr/lib/qt6/plugins/
 done
 cp $Q/platformthemes/KDEPlasmaPlatformTheme6.so $A/usr/lib/qt6/plugins/platformthemes/
-for p in FrameworkIntegrationPlugin.so kio kiod kwindowsystem; do cp -r $Q/kf6/$p $A/usr/lib/qt6/plugins/kf6/; done
+for p in FrameworkIntegrationPlugin.so kwindowsystem; do cp -r $Q/kf6/$p $A/usr/lib/qt6/plugins/kf6/; done
+mkdir -p $A/usr/lib/qt6/plugins/kf6/kio && cp $Q/kf6/kio/kio_file.so $A/usr/lib/qt6/plugins/kf6/kio/  # the file dialog only needs local files
 for t in breeze breeze-dark; do cp -r /usr/share/icons/$t $A/usr/share/icons/; done
 rm -f $A/usr/share/icons/*/*.rcc
 mkdir -p $A/usr/share/color-schemes && cp /usr/share/color-schemes/Breeze*.colors $A/usr/share/color-schemes/
