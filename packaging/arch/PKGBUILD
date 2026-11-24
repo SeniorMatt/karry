@@ -1,5 +1,5 @@
 pkgname=karry-git
-pkgver=0.1.2
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Back up, restore and sync your KDE Plasma setup"
 arch=(x86_64 aarch64)
@@ -15,7 +15,7 @@ sha256sums=(SKIP)
 
 pkgver() {
   cd karry
-  printf "0.1.2.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  printf "0.2.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {

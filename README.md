@@ -19,6 +19,8 @@ Arch / CachyOS:
 cd packaging/arch && makepkg -si
 ```
 
+Any distro: download `Karry-x86_64.AppImage` from the [latest release](https://github.com/SeniorMatt/karry/releases/latest), `chmod +x` it and run it.
+
 From source (needs Rust, CMake, Qt 6 and KDE Frameworks 6):
 
 ```sh
@@ -28,8 +30,9 @@ cmake -B build -G Ninja && cmake --build build
 
 ## Usage
 
-Open Karry and pick a folder that Syncthing, Nextcloud or a similar tool already syncs, or a git repo.
-That's it.
+Open Karry. It works out of the box on this computer (backups go to `~/Karry`, no account needed).
+To sync with other computers, point it at a folder that Syncthing or Nextcloud already syncs, or at a git repo.
+You can also export your whole setup to a single `.karry` file and restore it anywhere.
 
 From a terminal:
 

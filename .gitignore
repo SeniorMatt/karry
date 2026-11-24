@@ -1,2 +1,6 @@
 target/
 build/
+AppDir/
+*.AppImage
+appimagetool-*
+runtime-*

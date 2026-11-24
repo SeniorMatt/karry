@@ -24,3 +24,28 @@ jobs:
           path: |
             build/app/karry
             target/release/karry-cli
+  appimage:
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    permissions:
+      contents: write
+    steps:
+      - run: pacman -Syu --noconfirm --needed base-devel git rust cmake ninja qt6-base qt6-wayland ki18n kcoreaddons kwidgetsaddons breeze breeze-icons plasma-integration kio squashfs-tools curl github-cli
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - run: cargo build --release --locked -p karry-cli
+      - run: cmake -B build -G Ninja && cmake --build build
+      - run: packaging/appimage/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Karry-x86_64.AppImage
+          path: Karry-x86_64.AppImage
+      - if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for i in $(seq 20); do gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 && break; sleep 30; done
+          gh release upload "$GITHUB_REF_NAME" Karry-x86_64.AppImage --clobber

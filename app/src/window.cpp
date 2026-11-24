@@ -474,16 +474,18 @@ void Window::uninstall()
     v->addWidget(label(i18n("Uninstall Karry"), 1.4, true));
     v->addWidget(label(i18n("These Karry files will be removed. Your KDE settings and the sync folder are never touched."), 1.0, false, true));
     auto *paths = label({});
+    paths->setWordWrap(false);
     paths->setTextInteractionFlags(Qt::TextSelectableByMouse);
     paths->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     auto *keep = new QCheckBox(i18n("Keep snapshots"));
     keep->setChecked(true);
     auto list = [&] {
-        m_cli->run(keep->isChecked() ? QStringList{"uninstall", "--keep-snapshots"} : QStringList{"uninstall"}, &d, [paths](const QJsonValue &a) {
+        m_cli->run(keep->isChecked() ? QStringList{"uninstall", "--keep-snapshots"} : QStringList{"uninstall"}, &d, [paths, &d](const QJsonValue &a) {
             QStringList l;
             for (const QJsonValue &p : a.toArray())
                 l << p.toString();
             paths->setText(l.isEmpty() ? i18n("Nothing to remove.") : l.join('\n'));
+            d.adjustSize();
         });
     };
     list();

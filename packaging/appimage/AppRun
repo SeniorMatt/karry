@@ -1,0 +1,19 @@
+#!/bin/sh
+# Karry AppImage launcher: AppRun [args]  |  AppRun cli [args]  |  run through a symlink named karry-cli
+HERE="$(dirname "$(readlink -f "$0")")"
+LIB="$HERE/usr/lib"
+BIN=karry
+case "${ARGV0##*/}" in karry-cli) BIN=karry-cli ;; esac
+if [ "$1" = cli ]; then BIN=karry-cli; shift; fi
+export QT_PLUGIN_PATH="$LIB/qt6/plugins"
+# the bundled karry-cli wrapper is found through PATH
+export PATH="$HERE/usr/bin:$PATH"
+# host data first (its KDE colour schemes and icon theme win), ours as a fallback
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:$HERE/usr/share"
+# follow the system KDE theme: the KDE platform theme gives the Breeze style, icons and the KDE file dialog
+export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-kde}"
+case ":$XDG_CURRENT_DESKTOP:" in *KDE*) ;; *) export QT_STYLE_OVERRIDE="${QT_STYLE_OVERRIDE:-breeze}" ;; esac
+[ -n "$QT_QPA_PLATFORM" ] || { [ -n "$WAYLAND_DISPLAY" ] && export QT_QPA_PLATFORM="wayland;xcb" || export QT_QPA_PLATFORM=xcb; }
+# the bundled glibc runs every bundled library; the host's GPU drivers are not needed by this app
+[ "$BIN" = karry-cli ] && exec "$HERE/usr/bin/karry-cli" "$@"
+exec "$LIB/ld-linux-x86-64.so.2" --library-path "$LIB" "$HERE/usr/bin/$BIN" "$@"

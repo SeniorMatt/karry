@@ -9,6 +9,7 @@
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
 #include <QHeaderView>
+#include <QScrollBar>
 
 Preview::Preview(Cli *cli, QWidget *parent)
     : QWidget(parent)
@@ -47,8 +48,9 @@ void Preview::load(const QJsonObject &r, const QJsonObject &cats, const QString 
     tree->setHeaderLabels({i18n("Setting"), i18n("Change")});
     tree->setFrameShape(QFrame::NoFrame);
     tree->setIconSize({22, 22});
-    tree->header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    tree->header()->setStretchLastSection(true);
+    tree->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    tree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     QMap<QString, QTreeWidgetItem *> catItems, fileItems;
     QStringList hints;
     int shown = 0;
@@ -161,11 +163,22 @@ void Preview::load(const QJsonObject &r, const QJsonObject &cats, const QString 
     delete m_footer;
     m_scroll = shell(page, 860);
     m_footer = new QWidget;
-    auto *buttons = new QHBoxLayout(m_footer);
-    buttons->setContentsMargins(32, 8, 32, 16);
+    auto *outer = new QHBoxLayout(m_footer);
+    auto *bar = new QWidget;
+    bar->setMaximumWidth(860);
+    auto *buttons = new QHBoxLayout(bar);
+    buttons->setContentsMargins(0, 0, 0, 0);
     buttons->addStretch(1);
     buttons->addWidget(cancel);
     buttons->addWidget(apply);
+    outer->addStretch(1);
+    outer->addWidget(bar, 100);
+    outer->addStretch(1);
+    // line up with the page content, which sits left of the scroll bar
+    QScrollBar *sb = m_scroll->verticalScrollBar();
+    auto align = [=] { outer->setContentsMargins(32, 8, 32 + (sb->maximum() > 0 ? sb->sizeHint().width() : 0), 16); };
+    connect(sb, &QScrollBar::rangeChanged, this, align);
+    align();
     m_layout->addWidget(m_scroll, 1);
     m_layout->addWidget(m_footer);
 }

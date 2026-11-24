@@ -57,11 +57,9 @@ inline QPushButton *button(const QString &text, const QString &iconName = {}, bo
 inline QPushButton *linkButton(const QString &text)
 {
     auto *b = new QPushButton(text);
-    b->setFlat(true);
     b->setCursor(Qt::PointingHandCursor);
-    QPalette p = b->palette();
-    p.setColor(QPalette::ButtonText, p.color(QPalette::Link));
-    b->setPalette(p);
+    b->setFocusPolicy(Qt::TabFocus);
+    b->setStyleSheet("QPushButton { color: palette(link); background: transparent; border: none; padding: 4px 0; } QPushButton:hover { text-decoration: underline; } QPushButton:disabled { color: palette(mid); }");
     return b;
 }
 
